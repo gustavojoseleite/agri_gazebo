@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<!--
+  Utility tractor, the size of the ones that work a citrus grove: 3.6 m from
+  the ballast to the drawbar, 2.15 m across the rear tyres, 2.6 m to the top of
+  the cab. Origin between the rear wheels, on the ground, nose along +X.
+
+  It exists to be a ruler. Every carreador in these worlds is dimensioned so
+  that this and a loaded bin_trailer get through and get round the bends, and
+  those are claims that are worth being able to check by parking the thing in
+  the road and looking. It doubles as the one object in a grove whose size a
+  perception stack can be certain of.
+
+  Static, and no joints. A tractor that can be driven is a different piece of
+  work: it needs a drivetrain plugin, a steering model and inertias that do not
+  make it tip in a headland turn. This one is parked, which is what a tractor
+  in a grove is doing most of the time anyway.
+-->
+<sdf version="1.10">
+  <model name="tractor">
+    <static>true</static>
+
+    <link name="body">
+
+      <!-- One box over the whole machine. The wheels and the cab are shaped
+           in the visuals; for contact, a tractor is a wall. -->
+      <collision name="collision">
+        <pose>-0.1 0 1.3 0 0 0</pose>
+        <geometry><box><size>3.6 2.15 2.6</size></box></geometry>
+      </collision>
+
+      <visual name="chassis">
+        <pose>-0.1 0 0.95 0 0 0</pose>
+        <geometry><box><size>2.6 0.92 0.62</size></box></geometry>
+        <material><ambient>0.06 0.16 0.32 1</ambient><diffuse>0.10 0.28 0.55 1</diffuse>
+                  <specular>0.25 0.25 0.25 1</specular></material>
+      </visual>
+
+      <visual name="hood">
+        <pose>1.0 0 1.16 0 0 0</pose>
+        <geometry><box><size>1.5 0.86 0.56</size></box></geometry>
+        <material><ambient>0.06 0.16 0.32 1</ambient><diffuse>0.10 0.28 0.55 1</diffuse>
+                  <specular>0.25 0.25 0.25 1</specular></material>
+      </visual>
+
+      <visual name="grille">
+        <pose>1.72 0 1.10 0 0 0</pose>
+        <geometry><box><size>0.12 0.80 0.44</size></box></geometry>
+        <material><ambient>0.18 0.18 0.18 1</ambient><diffuse>0.26 0.26 0.26 1</diffuse></material>
+      </visual>
+
+      <visual name="cab_glass">
+        <pose>-0.75 0 1.92 0 0 0</pose>
+        <geometry><box><size>1.24 1.42 1.28</size></box></geometry>
+        <material><ambient>0.10 0.14 0.17 1</ambient><diffuse>0.18 0.26 0.31 1</diffuse>
+                  <specular>0.45 0.45 0.45 1</specular></material>
+      </visual>
+
+      <visual name="cab_roof">
+        <pose>-0.75 0 2.60 0 0 0</pose>
+        <geometry><box><size>1.44 1.60 0.12</size></box></geometry>
+        <material><ambient>0.55 0.55 0.53 1</ambient><diffuse>0.80 0.80 0.78 1</diffuse></material>
+      </visual>
+
+      <visual name="exhaust">
+        <pose>0.5 0.38 1.85 0 0 0</pose>
+        <geometry><cylinder><radius>0.06</radius><length>1.3</length></cylinder></geometry>
+        <material><ambient>0.14 0.14 0.14 1</ambient><diffuse>0.22 0.22 0.22 1</diffuse></material>
+      </visual>
+
+      <!-- Rear wheels 1.5 m across, front 0.9 m: the proportion that makes a
+           tractor read as a tractor at any distance. -->
+      <visual name="wheel_rl">
+        <pose>-1.0 0.85 0.75 1.5708 0 0</pose>
+        <geometry><cylinder><radius>0.75</radius><length>0.45</length></cylinder></geometry>
+        <material><ambient>0.06 0.06 0.06 1</ambient><diffuse>0.13 0.13 0.13 1</diffuse></material>
+      </visual>
+      <visual name="wheel_rr">
+        <pose>-1.0 -0.85 0.75 1.5708 0 0</pose>
+        <geometry><cylinder><radius>0.75</radius><length>0.45</length></cylinder></geometry>
+        <material><ambient>0.06 0.06 0.06 1</ambient><diffuse>0.13 0.13 0.13 1</diffuse></material>
+      </visual>
+      <visual name="wheel_fl">
+        <pose>1.15 0.75 0.45 1.5708 0 0</pose>
+        <geometry><cylinder><radius>0.45</radius><length>0.30</length></cylinder></geometry>
+        <material><ambient>0.06 0.06 0.06 1</ambient><diffuse>0.13 0.13 0.13 1</diffuse></material>
+      </visual>
+      <visual name="wheel_fr">
+        <pose>1.15 -0.75 0.45 1.5708 0 0</pose>
+        <geometry><cylinder><radius>0.45</radius><length>0.30</length></cylinder></geometry>
+        <material><ambient>0.06 0.06 0.06 1</ambient><diffuse>0.13 0.13 0.13 1</diffuse></material>
+      </visual>
+
+      <visual name="drawbar">
+        <pose>-1.85 0 0.55 0 0 0</pose>
+        <geometry><box><size>0.6 0.16 0.16</size></box></geometry>
+        <material><ambient>0.16 0.16 0.16 1</ambient><diffuse>0.24 0.24 0.24 1</diffuse></material>
+      </visual>
+
+    </link>
+  </model>
+</sdf>

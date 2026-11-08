@@ -1,0 +1,113 @@
+<?xml version="1.0"?>
+<!--
+  The farm pickup, as Gazebo needs to see it.
+
+  This file includes the pure description and adds everything simulation-only on
+  top: the drivetrain, tyre friction, the sensors' behaviour. Nothing here leaks
+  back into pickup_description, which is what keeps that package usable with
+  rviz alone, MoveIt or a real vehicle.
+
+  Expand it to inspect what actually gets spawned:
+    xacro pickup.gz.xacro name:=pickup
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="pickup">
+
+  <!-- The model's name in Gazebo, passed by agro_gz_bringup/launch/sim.launch.py or
+       convoy.launch.py. Sensor topics are built from it so that five machines
+       in one world do not publish over each other. -->
+  <xacro:arg name="name" default="pickup"/>
+  <xacro:property name="ns" value="/model/$(arg name)"/>
+
+  <!-- Whether this vehicle carries its sensors. A convoy is five machines and
+       a camera is the most expensive thing in any of these worlds, so the
+       followers are spawned with sensors:=false and only the leader looks at
+       anything. -->
+  <xacro:arg name="sensors" default="true"/>
+
+  <xacro:include filename="$(find pickup_description)/urdf/pickup.urdf.xacro"/>
+  <xacro:include filename="$(find agro_gz_bringup)/urdf/sensors.gz.xacro"/>
+
+  <!-- ── Tyres ───────────────────────────────────────────────────────────── -->
+
+  <!-- Road tyres on dirt, not agricultural lugs: less grip than the tractor
+       has, which is the honest difference between the two vehicles and the
+       reason the pickup is the one that slides in a headland turn. -->
+  <xacro:gz_wheel_surface link="left_rear_wheel" mu="1.1" mu2="0.95"/>
+  <xacro:gz_wheel_surface link="right_rear_wheel" mu="1.1" mu2="0.95"/>
+  <xacro:gz_wheel_surface link="left_front_wheel" mu="1.1" mu2="0.95"/>
+  <xacro:gz_wheel_surface link="right_front_wheel" mu="1.1" mu2="0.95"/>
+
+  <!-- ── Drivetrain ──────────────────────────────────────────────────────── -->
+
+  <!--
+    Ackermann steering on the front axle, drive on all four wheels: the same
+    dynamics as autonomous_tractor, from the same plugin, reading the same
+    kind of numbers out of the same kind of params.xacro.
+
+    ONE instance, where the tractor needs two. The tractor's front wheels are
+    0.45 m against 0.75 m at the rear, and a single <wheel_radius> would drive
+    one axle at the wrong speed, so it runs an instance per axle. Every wheel
+    on this vehicle is 0.38 m, so one instance can own all four joints and
+    there is nothing to keep in step — which is worth saying out loud,
+    because "copy the tractor" would have produced two instances and a subtle
+    fight over the odometry.
+
+    Speeds are a pickup's, not a tractor's: 22 m/s is 80 km/h, and it will do
+    it on a carreador, which is the point of putting it in front.
+  -->
+  <gazebo>
+    <plugin filename="gz-sim-ackermann-steering-system"
+            name="gz::sim::systems::AckermannSteering">
+      <left_joint>left_rear_wheel_joint</left_joint>
+      <right_joint>right_rear_wheel_joint</right_joint>
+      <left_joint>left_front_wheel_joint</left_joint>
+      <right_joint>right_front_wheel_joint</right_joint>
+      <left_steering_joint>left_steer_joint</left_steering_joint>
+      <right_steering_joint>right_steer_joint</right_steering_joint>
+      <kingpin_width>${kingpin_width}</kingpin_width>
+      <steering_limit>${steering_limit}</steering_limit>
+      <wheel_base>${wheel_base}</wheel_base>
+      <wheel_separation>${track_rear}</wheel_separation>
+      <wheel_radius>${wheel_radius}</wheel_radius>
+      <min_velocity>-6.0</min_velocity>
+      <max_velocity>22.0</max_velocity>
+      <min_acceleration>-6.0</min_acceleration>
+      <max_acceleration>3.0</max_acceleration>
+      <topic>${ns}/cmd_vel</topic>
+      <odom_topic>${ns}/odom</odom_topic>
+      <tf_topic>${ns}/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+      <odom_publish_frequency>30</odom_publish_frequency>
+    </plugin>
+
+    <!-- Publishes the joint angles so robot_state_publisher can complete the
+         TF tree. Without it the wheels are frozen in rviz while the pickup
+         drives, and the steering never appears to turn at all. -->
+    <plugin filename="gz-sim-joint-state-publisher-system"
+            name="gz::sim::systems::JointStatePublisher">
+      <topic>${ns}/joint_states</topic>
+      <joint_name>left_rear_wheel_joint</joint_name>
+      <joint_name>right_rear_wheel_joint</joint_name>
+      <joint_name>left_front_wheel_joint</joint_name>
+      <joint_name>right_front_wheel_joint</joint_name>
+      <joint_name>left_steer_joint</joint_name>
+      <joint_name>right_steer_joint</joint_name>
+    </plugin>
+  </gazebo>
+
+  <!-- ── Sensors ─────────────────────────────────────────────────────────── -->
+
+  <!-- The same three as the tractor, in the same places and for the same
+       reasons: IMU on base_link, GNSS over the centre of the machine, camera
+       on its front face. Left out entirely when sensors:=false. -->
+  <xacro:if value="$(arg sensors)">
+    <xacro:gz_imu link="imu_link" topic="${ns}/imu"/>
+    <xacro:gz_navsat link="gnss_link" topic="${ns}/navsat"/>
+    <!-- .../camera_front/image, not .../camera_front: Gazebo derives the
+         camera info topic from the image topic's PARENT. -->
+    <xacro:gz_camera link="camera_front_link" optical_frame="camera_front_optical_frame"
+                     topic="${ns}/camera_front/image"/>
+  </xacro:if>
+
+</robot>

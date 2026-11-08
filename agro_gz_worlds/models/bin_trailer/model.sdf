@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<!--
+  Bin trailer, 4.4 m of deck on four wheels, three field bins aboard, drawbar
+  pointing along +X. Origin at the centre of the deck, on the ground.
+
+  Parked nose to tail behind a tractor this makes a 9 m vehicle, and 9 m is the
+  number that decides a carreador. It is why the roads in citrus_farm.sdf are
+  10 m of running surface inside 15 m of bare earth, and why no bend on the
+  main road is tighter than 18 m of centreline radius: a rigid drawbar cuts the
+  corner, so the inside edge of a curve is what the trailer's wheels find
+  first.
+-->
+<sdf version="1.10">
+  <model name="bin_trailer">
+    <static>true</static>
+
+    <link name="trailer">
+
+      <collision name="collision">
+        <pose>0 0 1.0 0 0 0</pose>
+        <geometry><box><size>4.4 2.2 2.0</size></box></geometry>
+      </collision>
+
+      <visual name="deck">
+        <pose>0 0 0.88 0 0 0</pose>
+        <geometry><box><size>4.4 2.2 0.24</size></box></geometry>
+        <material><ambient>0.30 0.14 0.10 1</ambient><diffuse>0.52 0.24 0.16 1</diffuse></material>
+      </visual>
+
+      <visual name="drawbar">
+        <pose>2.9 0 0.60 0 0 0</pose>
+        <geometry><box><size>1.8 0.18 0.18</size></box></geometry>
+        <material><ambient>0.16 0.16 0.16 1</ambient><diffuse>0.24 0.24 0.24 1</diffuse></material>
+      </visual>
+
+      <visual name="bin_front">
+        <pose>1.45 0 1.42 0 0 0</pose>
+        <geometry><box><size>1.25 1.25 0.85</size></box></geometry>
+        <material><ambient>0.34 0.25 0.14 1</ambient><diffuse>0.55 0.41 0.24 1</diffuse></material>
+      </visual>
+      <visual name="bin_mid">
+        <pose>0 0 1.42 0 0 0</pose>
+        <geometry><box><size>1.25 1.25 0.85</size></box></geometry>
+        <material><ambient>0.34 0.25 0.14 1</ambient><diffuse>0.55 0.41 0.24 1</diffuse></material>
+      </visual>
+      <visual name="bin_rear">
+        <pose>-1.45 0 1.42 0 0 0</pose>
+        <geometry><box><size>1.25 1.25 0.85</size></box></geometry>
+        <material><ambient>0.34 0.25 0.14 1</ambient><diffuse>0.55 0.41 0.24 1</diffuse></material>
+      </visual>
+
+      <visual name="wheel_fl">
+        <pose>1.3 1.05 0.5 1.5708 0 0</pose>
+        <geometry><cylinder><radius>0.5</radius><length>0.28</length></cylinder></geometry>
+        <material><ambient>0.06 0.06 0.06 1</ambient><diffuse>0.13 0.13 0.13 1</diffuse></material>
+      </visual>
+      <visual name="wheel_fr">
+        <pose>1.3 -1.05 0.5 1.5708 0 0</pose>
+        <geometry><cylinder><radius>0.5</radius><length>0.28</length></cylinder></geometry>
+        <material><ambient>0.06 0.06 0.06 1</ambient><diffuse>0.13 0.13 0.13 1</diffuse></material>
+      </visual>
+      <visual name="wheel_rl">
+        <pose>-1.3 1.05 0.5 1.5708 0 0</pose>
+        <geometry><cylinder><radius>0.5</radius><length>0.28</length></cylinder></geometry>
+        <material><ambient>0.06 0.06 0.06 1</ambient><diffuse>0.13 0.13 0.13 1</diffuse></material>
+      </visual>
+      <visual name="wheel_rr">
+        <pose>-1.3 -1.05 0.5 1.5708 0 0</pose>
+        <geometry><cylinder><radius>0.5</radius><length>0.28</length></cylinder></geometry>
+        <material><ambient>0.06 0.06 0.06 1</ambient><diffuse>0.13 0.13 0.13 1</diffuse></material>
+      </visual>
+
+    </link>
+  </model>
+</sdf>

@@ -1,0 +1,93 @@
+# ros_gz_bridge — which Gazebo topics cross over to ROS 2, and in which direction.
+#
+# The bridge is not automatic: a topic that is not listed here simply does not
+# exist on the ROS side. Every entry costs a serialise/deserialise per message,
+# so bridge what you consume and nothing more.
+#
+# Type names differ on purpose: gz.msgs.* on one side, ROS interfaces on the
+# other. A mismatch fails at startup with "Failed to create a bridge".
+#
+# {name} is substituted by agro_gz_bringup/launch/sim.launch.py with the model's name
+# in Gazebo — the same string the plugins scope their topics under. It is a
+# template rather than a finished file because that name is a launch argument:
+# spawning two tractors means two different sets of gz topics, and one static
+# file could only ever match one of them.
+#
+# ros_topic_name is relative on purpose, so the whole set lands under whatever
+# namespace: the launch was given (nothing, by default).
+
+# Simulation time. Everything else that sets use_sim_time depends on this one
+# arriving, so it goes first. World-level, hence not under /model/.
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+# Velocity command: the only topic flowing into the simulator. Both Ackermann
+# instances (rear axle and front axle) listen on it.
+- ros_topic_name: "cmd_vel"
+  gz_topic_name: "/model/{name}/cmd_vel"
+  ros_type_name: "geometry_msgs/msg/Twist"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+# Odometry from the rear axle instance. The front one publishes to
+# odom_front_unused, which is deliberately not bridged.
+- ros_topic_name: "odom"
+  gz_topic_name: "/model/{name}/odom"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+# odom -> base_footprint. The rest of the TF tree comes from
+# robot_state_publisher on the ROS side.
+- ros_topic_name: "tf"
+  gz_topic_name: "/model/{name}/tf"
+  ros_type_name: "tf2_msgs/msg/TFMessage"
+  gz_type_name: "gz.msgs.Pose_V"
+  direction: GZ_TO_ROS
+
+# Wheel and steering angles. gz.msgs.Model is the correct counterpart here — the
+# joint state publisher plugin ships joint positions inside a Model message.
+- ros_topic_name: "joint_states"
+  gz_topic_name: "/model/{name}/joint_states"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "gz.msgs.Model"
+  direction: GZ_TO_ROS
+
+# ── Sensors ──────────────────────────────────────────────────────────────────
+#
+# Everything below this line is dropped when a vehicle is spawned with
+# sensors:=false, which is how a convoy's followers are brought up: the gz
+# topics do not exist on those machines, and a bridge entry for a topic
+# nobody publishes is a ROS topic that exists and never carries anything,
+# which is worse than no topic at all. agro_gz_bringup/agro_gz_bringup/vehicles.py cuts
+# the file here, so the marker is load bearing -- do not reword it.
+
+- ros_topic_name: "imu/data"
+  gz_topic_name: "/model/{name}/imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "gnss/fix"
+  gz_topic_name: "/model/{name}/navsat"
+  ros_type_name: "sensor_msgs/msg/NavSatFix"
+  gz_type_name: "gz.msgs.NavSat"
+  direction: GZ_TO_ROS
+
+# The camera publishes the image on its own topic and the calibration on
+# <parent of that topic>/camera_info — which is why the image topic ends in
+# /image rather than being the camera's name.
+- ros_topic_name: "camera_front/image_raw"
+  gz_topic_name: "/model/{name}/camera_front/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "camera_front/camera_info"
+  gz_topic_name: "/model/{name}/camera_front/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS

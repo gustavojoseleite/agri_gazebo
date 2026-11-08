@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<!--
+  Irrigation tank, 3 m across and 2.5 m tall, standing on a concrete pad.
+
+  Every field here has exactly one, and always in the headland. That is what
+  makes it useful beyond decoration: a single, tall, isolated object of known
+  size is the landmark a localisation stack can lock onto when every row looks
+  like every other row.
+-->
+<sdf version="1.10">
+  <model name="water_tank">
+    <static>true</static>
+
+    <link name="pad">
+      <collision name="collision">
+        <pose>0 0 0.05 0 0 0</pose>
+        <geometry><box><size>4.0 4.0 0.1</size></box></geometry>
+      </collision>
+      <visual name="visual">
+        <pose>0 0 0.05 0 0 0</pose>
+        <geometry><box><size>4.0 4.0 0.1</size></box></geometry>
+        <material><ambient>0.55 0.55 0.53 1</ambient><diffuse>0.68 0.68 0.66 1</diffuse></material>
+      </visual>
+    </link>
+
+    <link name="tank">
+      <pose>0 0 1.35 0 0 0</pose>
+      <collision name="collision">
+        <geometry><cylinder><radius>1.5</radius><length>2.5</length></cylinder></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><cylinder><radius>1.5</radius><length>2.5</length></cylinder></geometry>
+        <material>
+          <ambient>0.10 0.20 0.35 1</ambient>
+          <diffuse>0.15 0.32 0.55 1</diffuse>
+          <specular>0.20 0.20 0.20 1</specular>
+        </material>
+      </visual>
+    </link>
+
+    <link name="lid">
+      <pose>0 0 2.65 0 0 0</pose>
+      <visual name="visual">
+        <geometry><cylinder><radius>1.55</radius><length>0.1</length></cylinder></geometry>
+        <material><ambient>0.20 0.20 0.22 1</ambient><diffuse>0.28 0.28 0.30 1</diffuse></material>
+      </visual>
+    </link>
+
+  </model>
+</sdf>

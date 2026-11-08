@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<!--
+  One grown citrus, 3.95 m across and 2.83 m to the top, skirted to the
+  ground. Measured on the OBJ, not on the radii it was pushed out of: the
+  lobes stand proud of that sphere by a fifth.
+
+  A mesh rather than the ellipsoid, and the difference is what stands up to
+  being looked at, from the alley or from a camera two metres away. It is what
+  most of every farm is planted with, eight crowns to a baked run.
+
+  One of four trees, and the four are the point: model://citrus_tree_fruit is
+  this crown carrying oranges, model://citrus_round is the same envelope as a
+  bare ellipsoid, and model://forest_tree is what the mata is made of. A
+  talhao is planted with one of the first three and a mata with the fourth, so
+  a world holds all four and any two of them can be compared inside it.
+
+  Why the mesh looks like a tree and the ellipsoid does not is lighting rather
+  than shape. The crown here is a sphere pushed out into eight foliage clumps
+  and given a few centimetres of jitter on top of that, and the OBJ carries one
+  normal per face instead of averaged vertex normals, so every facet takes the
+  sun on its own: the pale clumps and the near black pockets between them come
+  out of the light in the world, not out of the material. An ellipsoid is a
+  smooth surface and can only ever take one smooth gradient.
+
+  It costs one visual, the same as the ellipsoid does. Gazebo charges per
+  entity and not per triangle, which is the measurement the farm worlds are
+  built on, so 1296 triangles of canopy are free where a second shape would
+  not be. Fruit is that second shape, and it lives in its own model for
+  exactly that reason.
+
+  The trunk is inside the canopy mesh. A skirted tree shows about 20 cm of it,
+  which is not worth an entity of its own; it is brown rather than green
+  because the colours come from the OBJ's own .mtl, and a visual that names a
+  <material> would override both shapes with one of them.
+
+  Six crowns live in meshes/, each with its own leaf green. A row planted from
+  the six shuffled, turned to random yaw and scaled a few per cent either way
+  is what stops a block from reading as one tree repeated.
+
+  Nothing here collides, and none of the four tree models does. A grove
+  simulated for perception does not need the solver to know where the trunks
+  are: a camera and a GPU lidar both work off visuals, and the physics engine
+  was being charged for cylinders nothing in a perception run ever touches.
+  Driving through a tree is the deliberate trade — the ground, the shed and
+  the machinery still collide, so a machine can still fall off nothing and
+  still cannot drive through the yard.
+-->
+<sdf version="1.10">
+  <model name="citrus_tree">
+    <static>true</static>
+
+    <link name="tree">
+      <visual name="canopy">
+        <geometry>
+          <mesh><uri>model://citrus_tree/meshes/citrus_a.obj</uri></mesh>
+        </geometry>
+      </visual>
+
+    </link>
+
+  </model>
+</sdf>

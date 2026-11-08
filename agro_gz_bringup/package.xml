@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<package format="3">
+  <name>agro_gz_bringup</name>
+  <version>0.1.0</version>
+  <description>The launches every vehicle shares (one vehicle, or a convoy of them), the vehicles Python module behind them, and the Gazebo-side xacro macros they all reuse.</description>
+  <maintainer email="gujoseleite@gmail.com">Gustavo</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <!-- Deliberately no dependency on any <vehicle>_gz package: this one is
+       generic, the vehicles depend on it, never the other way round. -->
+  <exec_depend>agro_gz_worlds</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

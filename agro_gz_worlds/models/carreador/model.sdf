@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<sdf version="1.10">
+  <!--
+    A placeholder, so that the directory is a well formed model and
+    model://carreador/meshes/... resolves wherever the library is installed.
+    The roads themselves are part of each world, not of this model.
+  -->
+  <model name="carreador">
+    <static>true</static>
+    <link name="link"/>
+  </model>
+</sdf>

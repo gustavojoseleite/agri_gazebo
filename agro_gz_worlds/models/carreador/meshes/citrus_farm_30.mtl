@@ -1,0 +1,18 @@
+# The carreadores of citrus_farm_30.
+# Written by scripts/generate_agriculture_worlds.py, edit there.
+
+newmtl latosol
+Ka 0.434 0.217 0.126
+Kd 0.620 0.310 0.180
+Ks 0.050 0.050 0.050
+Ns 8.0
+d 1.0
+illum 2
+
+newmtl surface
+Ka 0.462 0.252 0.154
+Kd 0.660 0.360 0.220
+Ks 0.050 0.050 0.050
+Ns 8.0
+d 1.0
+illum 2

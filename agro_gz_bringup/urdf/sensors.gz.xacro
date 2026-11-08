@@ -1,0 +1,190 @@
+<?xml version="1.0"?>
+<!--
+  The Gazebo half of the sensor mounts declared in
+  vehicle_common_description/urdf/sensors.xacro.
+
+  Each macro attaches a <sensor> to a link that the description already created,
+  by name. That is the whole contract between the two halves: the description
+  owns where the sensor is, this file owns how it behaves — rate, noise, field
+  of view, and the topic it publishes on.
+
+  <gz_frame_id> is not optional. Converting URDF to SDF collapses fixed joints,
+  so a lidar bolted to the arch would otherwise publish messages stamped
+  base_link, and every point cloud would land 2 m below where it was measured.
+  Naming the frame explicitly survives the collapse.
+
+  Topics are absolute and carry the model name. A relative sensor topic is
+  scoped under the world name as well as the model, so the bridge would have to
+  know which world is running to find it.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- 3D lidar. The defaults describe a 16-beam unit: the class of sensor that
+       sits on an agricultural machine, and enough vertical spread to see both
+       the ground ahead and the canopy beside it. -->
+  <xacro:macro name="gz_lidar_3d" params="link topic update_rate:=10
+                                          h_samples:=900 v_samples:=16
+                                          v_min:=-0.26 v_max:=0.26
+                                          range_min:=0.6 range_max:=80.0">
+    <gazebo reference="${link}">
+      <sensor name="${link}" type="gpu_lidar">
+        <topic>${topic}</topic>
+        <gz_frame_id>${link}</gz_frame_id>
+        <update_rate>${update_rate}</update_rate>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>${h_samples}</samples>
+              <resolution>1</resolution>
+              <min_angle>${-pi}</min_angle>
+              <max_angle>${pi}</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>${v_samples}</samples>
+              <resolution>1</resolution>
+              <min_angle>${v_min}</min_angle>
+              <max_angle>${v_max}</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>${range_min}</min>
+            <max>${range_max}</max>
+            <resolution>0.01</resolution>
+          </range>
+          <!-- A lidar with no noise makes a mapping stack look better than it
+               is; 2 cm is about what these units actually do. -->
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.02</stddev>
+          </noise>
+        </lidar>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- IMU. The noise figures are those of an industrial MEMS unit: good enough
+       to fuse, bad enough that dead reckoning on it alone drifts, which is the
+       behaviour worth reproducing. -->
+  <xacro:macro name="gz_imu" params="link topic update_rate:=100">
+    <gazebo reference="${link}">
+      <sensor name="${link}" type="imu">
+        <topic>${topic}</topic>
+        <gz_frame_id>${link}</gz_frame_id>
+        <update_rate>${update_rate}</update_rate>
+        <always_on>true</always_on>
+        <imu>
+          <angular_velocity>
+            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.0003</stddev>
+               <bias_mean>0.0000075</bias_mean><bias_stddev>0.0000008</bias_stddev></noise></x>
+            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.0003</stddev>
+               <bias_mean>0.0000075</bias_mean><bias_stddev>0.0000008</bias_stddev></noise></y>
+            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.0003</stddev>
+               <bias_mean>0.0000075</bias_mean><bias_stddev>0.0000008</bias_stddev></noise></z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.017</stddev>
+               <bias_mean>0.1</bias_mean><bias_stddev>0.001</bias_stddev></noise></x>
+            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.017</stddev>
+               <bias_mean>0.1</bias_mean><bias_stddev>0.001</bias_stddev></noise></y>
+            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.017</stddev>
+               <bias_mean>0.1</bias_mean><bias_stddev>0.001</bias_stddev></noise></z>
+          </linear_acceleration>
+        </imu>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- GNSS. Defaults to a metre of horizontal scatter — an uncorrected fix.
+       An RTK setup is the same sensor with stddev in centimetres, which is why
+       it is a parameter and not a constant. The world must carry
+       <spherical_coordinates>, or the sensor has no datum to convert to.
+
+       Both parameters are in METRES, and the horizontal one is divided by the
+       length of a degree of latitude before it reaches Gazebo. That division is
+       not cosmetic: gz-sensors adds the horizontal noise to the latitude and
+       longitude in DEGREES, so the obvious <stddev>1.0</stddev> is not a metre
+       of scatter but a degree of it — 111 km — and the symptom is a fix that
+       looks plausible, drifts continents, and is easy to mistake for a wrong
+       datum. Vertical noise is applied to the altitude, which is already in
+       metres, so it passes through untouched.
+
+       111320 m per degree is exact for latitude and 7% off for longitude at
+       this latitude; Gazebo applies one figure to both, so one figure is what
+       there is to give it. -->
+  <xacro:property name="metres_per_degree" value="111320.0"/>
+
+  <xacro:macro name="gz_navsat" params="link topic update_rate:=5
+                                        horizontal_stddev:=1.0 vertical_stddev:=2.0">
+    <gazebo reference="${link}">
+      <sensor name="${link}" type="navsat">
+        <topic>${topic}</topic>
+        <gz_frame_id>${link}</gz_frame_id>
+        <update_rate>${update_rate}</update_rate>
+        <always_on>true</always_on>
+        <navsat>
+          <position_sensing>
+            <horizontal><noise type="gaussian"><mean>0.0</mean>
+              <stddev>${horizontal_stddev / metres_per_degree}</stddev></noise></horizontal>
+            <vertical><noise type="gaussian"><mean>0.0</mean>
+              <stddev>${vertical_stddev}</stddev></noise></vertical>
+          </position_sensing>
+        </navsat>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- Camera. gz_frame_id is the OPTICAL frame, not the mount: an image whose
+       header says camera_link is 90 degrees out from what every vision node
+       assumes, and the error is silent.
+
+       The calibration is not published on the topic given here. Gazebo puts it
+       on the image topic's parent plus /camera_info, so pass something like
+       .../camera_front/image and the pair comes out as .../camera_front/image
+       and .../camera_front/camera_info. Pass .../camera_front and the info
+       lands beside the model instead, where the next camera overwrites it. -->
+  <xacro:macro name="gz_camera" params="link optical_frame topic update_rate:=15
+                                        width:=1280 height:=720 hfov:=1.20
+                                        near:=0.2 far:=200.0">
+    <gazebo reference="${link}">
+      <sensor name="${link}" type="camera">
+        <topic>${topic}</topic>
+        <gz_frame_id>${optical_frame}</gz_frame_id>
+        <update_rate>${update_rate}</update_rate>
+        <always_on>true</always_on>
+        <camera>
+          <horizontal_fov>${hfov}</horizontal_fov>
+          <image>
+            <width>${width}</width>
+            <height>${height}</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>${near}</near>
+            <far>${far}</far>
+          </clip>
+          <optical_frame_id>${optical_frame}</optical_frame_id>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+        </camera>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- Not a sensor, but the other thing every vehicle needs and no description
+       may contain: what its tyres do against the ground. -->
+  <xacro:macro name="gz_wheel_surface" params="link mu:=1.4 mu2:=1.2 kp:=1e7 kd:=100.0">
+    <gazebo reference="${link}">
+      <mu1>${mu}</mu1>
+      <mu2>${mu2}</mu2>
+      <kp>${kp}</kp>
+      <kd>${kd}</kd>
+    </gazebo>
+  </xacro:macro>
+
+</robot>

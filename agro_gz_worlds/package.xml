@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<package format="3">
+  <name>agro_gz_worlds</name>
+  <version>0.1.0</version>
+  <description>Gazebo Harmonic worlds shared by every robot in this workspace.</description>
+  <maintainer email="gujoseleite@gmail.com">Gustavo</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- A package of its own, and not a folder inside a vehicle package, so that a second
+       robot reuses the same worlds instead of copying them. -->
+  <exec_depend>ros_gz_sim</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!--
+  The same grown citrus as model://citrus_tree, carrying fruit. Same crown,
+  same 3.95 m across, same absence of collision.
+
+  Two visuals rather than one: the crown mesh, and a second mesh of oranges
+  sitting in it. They are separate because the OBJ carries its colours in its
+  own .mtl and one <material> on a visual would paint both the leaves and the
+  fruit a single colour.
+
+  That second visual is the whole cost of this model, and it is why there are
+  two citrus models instead of one flag on a parameter. Gazebo charges per
+  entity: a talhao planted with fruit costs twice the entities of the same
+  talhao planted without, and there is no baked run wearing fruit, so it also
+  gives up the runs of eight that keep a plain block cheap. Fruit is the one
+  thing in these worlds a perception stack can be asked to find that is not a
+  row, a road or a trunk, so one talhao carries it and the rest do not.
+
+  It reads the meshes out of model://citrus_tree/meshes/ rather than keeping a
+  copy: 10 MB of OBJ has one home, and the two models are the same tree.
+-->
+<sdf version="1.10">
+  <model name="citrus_tree_fruit">
+    <static>true</static>
+
+    <link name="tree">
+      <visual name="canopy">
+        <geometry>
+          <mesh><uri>model://citrus_tree/meshes/citrus_a.obj</uri></mesh>
+        </geometry>
+      </visual>
+
+      <visual name="fruit">
+        <geometry>
+          <mesh><uri>model://citrus_tree/meshes/citrus_a_fruit.obj</uri></mesh>
+        </geometry>
+      </visual>
+    </link>
+
+  </model>
+</sdf>
