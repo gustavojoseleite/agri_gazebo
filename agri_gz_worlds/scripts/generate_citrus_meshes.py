@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Write the citrus canopy meshes that models/citrus_tree and the talhões use.
 
-    python3 agro_gz_worlds/scripts/generate_citrus_meshes.py            # rewrite in place
-    python3 agro_gz_worlds/scripts/generate_citrus_meshes.py --out /tmp  # look first
+    python3 agri_gz_worlds/scripts/generate_citrus_meshes.py            # rewrite in place
+    python3 agri_gz_worlds/scripts/generate_citrus_meshes.py --out /tmp  # look first
 
 Six variants of one tree, as OBJ, plus a matching cloud of fruit for each. The
 files are committed; the build never runs this and Gazebo only ever reads the

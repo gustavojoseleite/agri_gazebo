@@ -1,18 +1,18 @@
-# agro_gazebo
+# agri_gazebo
 
 The agricultural simulation platform: citrus-farm worlds, every vehicle's Gazebo half
 (plugins, sensors, bridge) and the launch files that put any of them into any world. Shared by
 every project in the workspace; nothing here knows about a particular project.
 
 ```
-agro_gz_worlds/               worlds shared by every vehicle
+agri_gz_worlds/               worlds shared by every vehicle
 ├── worlds/
 │   ├── empty.sdf             ground, sun, the systems: the smoke test
 │   └── citrus_farm{,_90,_60,_30}.sdf      one property, one road network each
 ├── models/                   the props those fields <include>
 ├── scripts/                  the generators: the worlds, and the citrus meshes
 └── docs/citrus/              the photographs the farms were built from
-agro_gz_bringup/              the launches every vehicle shares (one vehicle, a convoy),
+agri_gz_bringup/              the launches every vehicle shares (one vehicle, a convoy),
 │                             the vehicles Python module behind them, the gz sensor macros
 autonomous_tractor_gz/        the tractor in Gazebo: gz tags, plugins, bridge, spawn height, launch
 pickup_gz/                    the same, for the pickup
@@ -22,7 +22,7 @@ Driving a vehicle is not here: keyboard teleoperation is in the `vehicle_control
 and the camera road follower is in the `ftl` repository, which uses it to drive its leader.
 
 
-`agro_gz_bringup` is what keeps a second vehicle from being a copy of the first. Its
+`agri_gz_bringup` is what keeps a second vehicle from being a copy of the first. Its
 `sim.launch.py` brings up any of them — it finds `urdf/<vehicle>.gz.xacro` and
 `config/bridge.yaml` inside `<vehicle>_gz` by convention — and its
 `urdf/sensors.gz.xacro` holds the Gazebo half of every sensor: rate, noise, field of view.
@@ -42,11 +42,11 @@ ros2 launch autonomous_tractor_gz sim.launch.py world:=empty.sdf
 ros2 launch autonomous_tractor_gz sim.launch.py world:=citrus_farm.sdf
 
 # The same, through the generic launch, plus where to put the machine:
-ros2 launch agro_gz_bringup sim.launch.py robot:=autonomous_tractor \
+ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor \
     world:=citrus_farm_60.sdf x:=-40 y:=6 yaw:=1.5708
 ```
 
-`world:` is a file under `agro_gz_worlds/worlds/`. Bare `gz sim citrus_farm_90.sdf` also works,
+`world:` is a file under `agri_gz_worlds/worlds/`. Bare `gz sim citrus_farm_90.sdf` also works,
 from any directory: the environment hook puts that directory on `GZ_SIM_RESOURCE_PATH`.
 
 Drive it from a second shell. Join the *running* container rather than starting another one, so
@@ -78,9 +78,9 @@ steering limit instead of refusing.
 ### A convoy
 
 ```bash
-ros2 launch agro_gz_bringup convoy.launch.py                      # pickup + 4 tractors
-ros2 launch agro_gz_bringup convoy.launch.py spacing:=15.0 followers:=2
-ros2 launch agro_gz_bringup convoy.launch.py leader:=autonomous_tractor follower:=pickup
+ros2 launch agri_gz_bringup convoy.launch.py                      # pickup + 4 tractors
+ros2 launch agri_gz_bringup convoy.launch.py spacing:=15.0 followers:=2
+ros2 launch agri_gz_bringup convoy.launch.py leader:=autonomous_tractor follower:=pickup
 ```
 
 By default a **pickup** in front and **four autonomous tractors** behind it, nose to tail
@@ -110,14 +110,14 @@ before spawning a sixth:
   message. `followers_camera:=true` gives them cameras too, at the price you
   would expect; `followers_sensors:=false` leaves them with no sensors at all.
 
-What one vehicle's bringup consists of lives in the `agro_gz_bringup.vehicles` Python module
-(`agro_gz_bringup/agro_gz_bringup/vehicles.py`, installed with `ament_python_install_package`)
+What one vehicle's bringup consists of lives in the `agri_gz_bringup.vehicles` Python module
+(`agri_gz_bringup/agri_gz_bringup/vehicles.py`, installed with `ament_python_install_package`)
 and is used by `sim.launch.py`, `convoy.launch.py` and any project that composes its own
 scenario, because a vehicle is three nodes and a rule about topic names and having that written
 twice is having two definitions that will disagree:
 
 ```python
-from agro_gz_bringup.vehicles import vehicle_nodes
+from agri_gz_bringup.vehicles import vehicle_nodes
 nodes = vehicle_nodes("pickup", "pickup", "/pickup", (0.0, 0.0, None, 0.0))   # z None: spawn.yaml
 ```
 
@@ -132,7 +132,7 @@ repository now: FTL uses it to drive the leader. Its README carries the whole st
 finds the road. It runs against any vehicle launched from here:
 
 ```bash
-ros2 launch agro_gz_bringup sim.launch.py robot:=autonomous_tractor world:=citrus_farm.sdf
+ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor world:=citrus_farm.sdf
 ros2 run road_follow road_follow                     # second shell
 ```
 
@@ -149,7 +149,7 @@ with the tractor parked on the origin puts the antenna at 1.122 ± 0.058 m east 
 
 ## Agricultural worlds
 
-`agro_gz_worlds/worlds/` holds one property in five cuts, and the empty world to fall back on. The
+`agri_gz_worlds/worlds/` holds one property in five cuts, and the empty world to fall back on. The
 field is laid out the way a real one is: talhões of planted rows, carreadores wide enough to turn
 a machine in, a headland at the ends of the rows, and a boundary that has to be respected.
 
@@ -298,7 +298,7 @@ collisions back — the model files have none to put back.
 
 ### The model library
 
-`agro_gz_worlds/models/` is on `GZ_SIM_RESOURCE_PATH`, so any world in the workspace can
+`agri_gz_worlds/models/` is on `GZ_SIM_RESOURCE_PATH`, so any world in the workspace can
 `<include>` these by `model://<name>`. Eight of them: four trees, three machines and a tank.
 
 None of them collides. Sizes are measured on the geometry, not on the radii it was built from.
@@ -734,15 +734,15 @@ made the arithmetic true.
 
 The three worlds are generated, and the generated SDF is committed — the build never runs the
 generator, and Gazebo only ever reads the SDF. Edit the layout constants at the top of the
-matching builder in `agro_gz_worlds/scripts/generate_agriculture_worlds.py` (row spacing, lane width,
+matching builder in `agri_gz_worlds/scripts/generate_agriculture_worlds.py` (row spacing, lane width,
 slope, number of rows) and regenerate. Two tables near the top of that file are the ones worth
 knowing: `THROUGH_BLOCKS`, which is where the talhões are, and `PLANTING`, which is what each of
 them is planted with — moving a block to `"round"` or `"fruit"` there is the whole of changing a
 crown:
 
 ```bash
-python3 agro_gz_worlds/scripts/generate_agriculture_worlds.py          # rewrite in place
-python3 agro_gz_worlds/scripts/generate_agriculture_worlds.py --out /tmp   # look first
+python3 agri_gz_worlds/scripts/generate_agriculture_worlds.py          # rewrite in place
+python3 agri_gz_worlds/scripts/generate_agriculture_worlds.py --out /tmp   # look first
 ```
 
 The trees themselves come out of a second generator, which writes the six crowns — trunk and all
@@ -751,8 +751,8 @@ lobes, how deep the skirt, how much fruit — there, and rerun it; the worlds do
 regenerated afterwards, since they only ever name the mesh files.
 
 ```bash
-python3 agro_gz_worlds/scripts/generate_citrus_meshes.py               # rewrite in place
-python3 agro_gz_worlds/scripts/generate_citrus_meshes.py --out /tmp    # look first
+python3 agri_gz_worlds/scripts/generate_citrus_meshes.py               # rewrite in place
+python3 agri_gz_worlds/scripts/generate_citrus_meshes.py --out /tmp    # look first
 ```
 
 Both generators need nothing but Python 3, and the OBJ carries its colours in a `.mtl` beside it
@@ -764,10 +764,10 @@ can only override a mesh with a single colour.
 Copy `autonomous_tractor_gz/` to `<vehicle>_gz/` and point it at the matching
 `<vehicle>_description`. Three things do not get copied:
 
-- the worlds, which stay in `agro_gz_worlds/` — that is why it is a package of its own;
-- the launch, which stays in `agro_gz_bringup/` — the copy keeps only the wrapper that names the
+- the worlds, which stay in `agri_gz_worlds/` — that is why it is a package of its own;
+- the launch, which stays in `agri_gz_bringup/` — the copy keeps only the wrapper that names the
   vehicle, and the wrapper is a dozen lines;
-- the sensor behaviour, which stays in `agro_gz_bringup/urdf/sensors.gz.xacro` — a second machine
+- the sensor behaviour, which stays in `agri_gz_bringup/urdf/sensors.gz.xacro` — a second machine
   carrying the same lidar should not carry a second opinion about its noise.
 
 Keep the three file names the generic launches look for: `urdf/<vehicle>.gz.xacro`,

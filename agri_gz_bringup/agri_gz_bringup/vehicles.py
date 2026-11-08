@@ -9,7 +9,7 @@ definitions that will disagree.
 It is an installed Python module (ament_python_install_package in
 CMakeLists.txt), so every caller imports it the ordinary way:
 
-    from agro_gz_bringup.vehicles import vehicle_nodes
+    from agri_gz_bringup.vehicles import vehicle_nodes
 """
 
 import tempfile

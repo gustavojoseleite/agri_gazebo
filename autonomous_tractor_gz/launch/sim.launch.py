@@ -4,7 +4,7 @@
     ros2 launch autonomous_tractor_gz sim.launch.py gui:=false
     ros2 launch autonomous_tractor_gz sim.launch.py world:=citrus_farm_60.sdf
 
-A wrapper, on purpose. All of the work is in agro_gz_bringup, which is shared by
+A wrapper, on purpose. All of the work is in agri_gz_bringup, which is shared by
 every vehicle; this file exists so the tractor can be launched by its own
 package name. Its spawn height is not here but in config/spawn.yaml, where
 every launch that spawns it (convoy included) reads it.
@@ -27,7 +27,7 @@ FORWARDED = ("world", "gui", "name", "namespace", "x", "y", "z", "yaw")
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument("world", default_value="empty.sdf",
-                              description=("World file, relative to agro_gz_worlds/worlds: "
+                              description=("World file, relative to agri_gz_worlds/worlds: "
                                            "empty.sdf, or citrus_farm_90/_60/_30.sdf.")),
         DeclareLaunchArgument("gui", default_value="true",
                               description="false runs the server without the Gazebo window."),
@@ -43,7 +43,7 @@ def generate_launch_description():
 
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(PathJoinSubstitution([
-                FindPackageShare("agro_gz_bringup"), "launch", "sim.launch.py",
+                FindPackageShare("agri_gz_bringup"), "launch", "sim.launch.py",
             ])),
             launch_arguments={
                 "robot": "autonomous_tractor",

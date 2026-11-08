@@ -12,7 +12,7 @@
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="autonomous_tractor">
 
-  <!-- The model's name in Gazebo, passed by agro_gz_bringup/launch/sim.launch.py.
+  <!-- The model's name in Gazebo, passed by agri_gz_bringup/launch/sim.launch.py.
        Sensor topics are built from it so that two machines in one world do not
        publish over each other. -->
   <xacro:arg name="name" default="autonomous_tractor"/>
@@ -31,7 +31,7 @@
        radii straight back out of them, so resizing the tractor cannot leave the
        controller computing turns for a machine that no longer exists. -->
   <xacro:include filename="$(find autonomous_tractor_description)/urdf/autonomous_tractor.urdf.xacro"/>
-  <xacro:include filename="$(find agro_gz_bringup)/urdf/sensors.gz.xacro"/>
+  <xacro:include filename="$(find agri_gz_bringup)/urdf/sensors.gz.xacro"/>
 
   <!-- ── Tyres ───────────────────────────────────────────────────────────── -->
 
@@ -136,7 +136,7 @@
   <!-- Camera and GNSS only. The lidar was measured, in citrus_farm_60, at 30.4
        of the 62.1 wall-seconds it took to simulate 20 s — half the budget for
        one sensor, because a 360 degree scan walks every visual in the world
-       ten times a second. agro_gz_bringup still ships the gz_lidar_3d macro. -->
+       ten times a second. agri_gz_bringup still ships the gz_lidar_3d macro. -->
   <xacro:if value="$(arg sensors)">
     <xacro:gz_imu link="imu_link" topic="${ns}/imu"/>
     <xacro:gz_navsat link="gnss_link" topic="${ns}/navsat"/>

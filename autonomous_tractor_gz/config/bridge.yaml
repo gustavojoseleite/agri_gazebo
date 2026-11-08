@@ -7,7 +7,7 @@
 # Type names differ on purpose: gz.msgs.* on one side, ROS interfaces on the
 # other. A mismatch fails at startup with "Failed to create a bridge".
 #
-# {name} is substituted by agro_gz_bringup/launch/sim.launch.py with the model's name
+# {name} is substituted by agri_gz_bringup/launch/sim.launch.py with the model's name
 # in Gazebo — the same string the plugins scope their topics under. It is a
 # template rather than a finished file because that name is a launch argument:
 # spawning two tractors means two different sets of gz topics, and one static
@@ -62,7 +62,7 @@
 # sensors:=false, which is how a convoy's followers are brought up: the gz
 # topics do not exist on those machines, and a bridge entry for a topic
 # nobody publishes is a ROS topic that exists and never carries anything,
-# which is worse than no topic at all. agro_gz_bringup/agro_gz_bringup/vehicles.py cuts
+# which is worse than no topic at all. agri_gz_bringup/agri_gz_bringup/vehicles.py cuts
 # the file here, so the marker is load bearing -- do not reword it.
 
 - ros_topic_name: "imu/data"

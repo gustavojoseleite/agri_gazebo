@@ -12,7 +12,7 @@
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="pickup">
 
-  <!-- The model's name in Gazebo, passed by agro_gz_bringup/launch/sim.launch.py or
+  <!-- The model's name in Gazebo, passed by agri_gz_bringup/launch/sim.launch.py or
        convoy.launch.py. Sensor topics are built from it so that five machines
        in one world do not publish over each other. -->
   <xacro:arg name="name" default="pickup"/>
@@ -27,7 +27,7 @@
   <xacro:arg name="camera" default="$(arg sensors)"/>
 
   <xacro:include filename="$(find pickup_description)/urdf/pickup.urdf.xacro"/>
-  <xacro:include filename="$(find agro_gz_bringup)/urdf/sensors.gz.xacro"/>
+  <xacro:include filename="$(find agri_gz_bringup)/urdf/sensors.gz.xacro"/>
 
   <!-- ── Tyres ───────────────────────────────────────────────────────────── -->
 

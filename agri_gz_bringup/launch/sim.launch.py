@@ -1,8 +1,8 @@
 """Bring up any vehicle of this workspace in Gazebo Harmonic.
 
-    ros2 launch agro_gz_bringup sim.launch.py robot:=autonomous_tractor
-    ros2 launch agro_gz_bringup sim.launch.py robot:=autonomous_tractor gui:=false
-    ros2 launch agro_gz_bringup sim.launch.py robot:=autonomous_tractor \
+    ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor
+    ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor gui:=false
+    ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor \
         world:=citrus_farm_60.sdf x:=-40.0 y:=6.0 yaw:=1.57
 
 One launch file for every vehicle, instead of a copy per vehicle that slowly
@@ -47,7 +47,7 @@ from launch.substitutions import LaunchConfiguration
 
 # What it takes to bring one vehicle up lives in the vehicles module of this
 # package, because convoy.launch.py needs exactly the same thing five times over.
-from agro_gz_bringup.vehicles import vehicle_nodes
+from agri_gz_bringup.vehicles import vehicle_nodes
 
 
 def launch_setup(context, *args, **kwargs):
@@ -60,7 +60,7 @@ def launch_setup(context, *args, **kwargs):
     # another argument's value, which a declaration cannot express.
     name = LaunchConfiguration("name").perform(context) or robot
 
-    world_path = Path(get_package_share_directory("agro_gz_worlds")) / "worlds" / world
+    world_path = Path(get_package_share_directory("agri_gz_worlds")) / "worlds" / world
     if not world_path.exists():
         raise FileNotFoundError(f"{world_path} does not exist")
 
@@ -91,7 +91,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "world",
             default_value="empty.sdf",
-            description=("World file, relative to agro_gz_worlds/worlds: empty.sdf for the "
+            description=("World file, relative to agri_gz_worlds/worlds: empty.sdf for the "
                          "smoke test, or one of citrus_farm_90/_60/_30.sdf."),
         ),
         DeclareLaunchArgument(

@@ -1,9 +1,9 @@
 """A line of machines on the carreador: one leader in front, followers behind.
 
-    ros2 launch agro_gz_bringup convoy.launch.py
-    ros2 launch agro_gz_bringup convoy.launch.py spacing:=15.0 followers:=2
-    ros2 launch agro_gz_bringup convoy.launch.py world:=citrus_farm_60.sdf gui:=false
-    ros2 launch agro_gz_bringup convoy.launch.py leader:=autonomous_tractor follower:=pickup
+    ros2 launch agri_gz_bringup convoy.launch.py
+    ros2 launch agri_gz_bringup convoy.launch.py spacing:=15.0 followers:=2
+    ros2 launch agri_gz_bringup convoy.launch.py world:=citrus_farm_60.sdf gui:=false
+    ros2 launch agri_gz_bringup convoy.launch.py leader:=autonomous_tractor follower:=pickup
 
 Any vehicle can lead and any vehicle can follow: leader:= and follower:= name
 a vehicle type, which is found by the same <robot>_gz convention as
@@ -15,7 +15,7 @@ launched them.
 By default the leader is a **pickup** and the followers are **autonomous
 tractors**, four of them, nose to tail down the main carreador at ten metres.
 The leader sits on the world origin facing east, which is where every world in
-agro_gz_worlds puts a vehicle — level ground, on the road, pointing along it — and
+agri_gz_worlds puts a vehicle — level ground, on the road, pointing along it — and
 each follower is one spacing further back:
 
     pickup       ( 0, 0)      /pickup/cmd_vel
@@ -51,7 +51,7 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, Opaq
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
-from agro_gz_bringup.vehicles import vehicle_nodes
+from agri_gz_bringup.vehicles import vehicle_nodes
 
 
 def launch_setup(context, *args, **kwargs):
@@ -69,7 +69,7 @@ def launch_setup(context, *args, **kwargs):
     leader_name = arg("leader_name") or leader
     prefix = arg("follower_prefix")
 
-    world_path = Path(get_package_share_directory("agro_gz_worlds")) / "worlds" / world
+    world_path = Path(get_package_share_directory("agri_gz_worlds")) / "worlds" / world
     if not world_path.exists():
         raise FileNotFoundError(f"{world_path} does not exist")
 
@@ -106,7 +106,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             "world", default_value="citrus_farm.sdf",
-            description="World file, relative to agro_gz_worlds/worlds.",
+            description="World file, relative to agri_gz_worlds/worlds.",
         ),
         DeclareLaunchArgument(
             "gui", default_value="true",
