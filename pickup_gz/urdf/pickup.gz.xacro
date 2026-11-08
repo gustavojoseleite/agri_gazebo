@@ -18,11 +18,13 @@
   <xacro:arg name="name" default="pickup"/>
   <xacro:property name="ns" value="/model/$(arg name)"/>
 
-  <!-- Whether this vehicle carries its sensors. A convoy is five machines and
-       a camera is the most expensive thing in any of these worlds, so the
-       followers are spawned with sensors:=false and only the leader looks at
-       anything. -->
+  <!-- Whether this vehicle carries any sensors at all: IMU, GNSS, camera. -->
   <xacro:arg name="sensors" default="true"/>
+
+  <!-- The camera on its own switch, because it is the one that costs: a
+       convoy's followers carry GNSS and IMU (cheap, and what they localise
+       with) but not a camera. Defaults to whatever sensors:= says. -->
+  <xacro:arg name="camera" default="$(arg sensors)"/>
 
   <xacro:include filename="$(find pickup_description)/urdf/pickup.urdf.xacro"/>
   <xacro:include filename="$(find agro_gz_bringup)/urdf/sensors.gz.xacro"/>
@@ -106,8 +108,10 @@
     <xacro:gz_navsat link="gnss_link" topic="${ns}/navsat"/>
     <!-- .../camera_front/image, not .../camera_front: Gazebo derives the
          camera info topic from the image topic's PARENT. -->
-    <xacro:gz_camera link="camera_front_link" optical_frame="camera_front_optical_frame"
-                     topic="${ns}/camera_front/image"/>
+    <xacro:if value="$(arg camera)">
+      <xacro:gz_camera link="camera_front_link" optical_frame="camera_front_optical_frame"
+                       topic="${ns}/camera_front/image"/>
+    </xacro:if>
   </xacro:if>
 
 </robot>

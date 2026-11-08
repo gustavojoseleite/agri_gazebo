@@ -27,6 +27,8 @@ from launch_ros.parameter_descriptions import ParameterValue
 # <robot>_gz/config/bridge.yaml carries this line, and it is why a follower
 # spawned without sensors also arrives without their topics.
 SENSOR_MARKER = "# \u2500\u2500 Sensors "
+# And where the camera starts, below it: the camera has its own switch.
+CAMERA_MARKER = "# \u2500\u2500 Camera "
 
 
 def vehicle_files(robot):
@@ -60,7 +62,7 @@ def spawn_height(robot):
     return float(yaml.safe_load(path.read_text())["z"])
 
 
-def vehicle_nodes(robot, name, namespace, pose, sensors=True):
+def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
     """The three nodes one machine needs, and the bridge config they share.
 
     robot      which vehicle type: autonomous_tractor, pickup
@@ -69,12 +71,16 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True):
     pose       (x, y, z, yaw), as strings or numbers; z empty or None means
                the vehicle's own spawn height (spawn_height above)
     sensors    false leaves the camera, GNSS and IMU off this one
+    camera     false leaves the camera off and keeps GNSS and IMU; None
+               means the same as sensors. A convoy's followers localise
+               with GNSS and IMU and do not need the expensive camera.
 
     The model name reaches the xacro because sensors take an absolute gz topic
     — a relative one would be scoped under the world name as well, which the
     bridge would then have to track — so the xacro has to build it.
     """
     model, bridge = vehicle_files(robot)
+    camera = sensors if camera is None else (camera and sensors)
     x, y, z, yaw = pose
     if z in (None, ""):
         z = spawn_height(robot)
@@ -93,6 +99,7 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True):
             "xacro ", str(model),
             " name:=", name,
             " sensors:=", "true" if sensors else "false",
+            " camera:=", "true" if camera else "false",
         ]),
         value_type=str,
     )
@@ -108,6 +115,8 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True):
         # than no topic: it is a thing to subscribe to and wait on forever. So
         # the sensor half of the file goes with the sensors.
         config = config.split(SENSOR_MARKER)[0]
+    elif not camera:
+        config = config.split(CAMERA_MARKER)[0]
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=f"_{name}_bridge.yaml", delete=False,
     ) as handle:

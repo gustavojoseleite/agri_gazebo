@@ -34,12 +34,12 @@ otherwise all arrive on /cmd_vel and /odom and fight. Driving the third
 tractor is `ros2 run vehicle_control teleop_key --ros-args -r __ns:=/tractor_3`.
 Followers are named <follower_prefix>_<n>, tractor_1 and on by default.
 
-**Only the leader carries sensors.** A camera is the most expensive thing in
+**Only the leader carries a camera.** A camera is the most expensive thing in
 any of these worlds -- measured at 16.8 of the 62.1 wall-seconds it took to
 simulate 20 s of citrus_farm_60 -- so the followers are spawned with
-sensors:=false. They still drive, they still publish odometry, they simply do
-not look at anything. Give them their own with followers_sensors:=true and
-expect to pay for it.
+camera:=false. They keep GNSS and IMU, which are cheap and what a follower
+localises with. followers_camera:=true gives them cameras too, at the price
+above; followers_sensors:=false takes GNSS and IMU away as well.
 """
 
 import math
@@ -64,6 +64,7 @@ def launch_setup(context, *args, **kwargs):
     followers = int(arg("followers"))
     x0, y0, yaw = float(arg("x")), float(arg("y")), float(arg("yaw"))
     follower_sensors = arg("followers_sensors").lower() == "true"
+    follower_camera = arg("followers_camera").lower() == "true"
     leader, follower = arg("leader"), arg("follower")
     leader_name = arg("leader_name") or leader
     prefix = arg("follower_prefix")
@@ -96,6 +97,7 @@ def launch_setup(context, *args, **kwargs):
             robot, name, f"/{name}",
             (x0 + back_x * spacing * n, y0 + back_y * spacing * n, None, yaw),
             sensors=(n == 0 or follower_sensors),
+            camera=(n == 0 or follower_camera),
         )
     return nodes
 
@@ -135,8 +137,12 @@ def generate_launch_description():
             description="Metres between one machine's base_link and the next.",
         ),
         DeclareLaunchArgument(
-            "followers_sensors", default_value="false",
-            description=("true gives every follower a camera, GNSS and IMU as well. "
+            "followers_sensors", default_value="true",
+            description="false spawns the followers with no GNSS, IMU or camera at all.",
+        ),
+        DeclareLaunchArgument(
+            "followers_camera", default_value="false",
+            description=("true gives every follower a camera as well. "
                          "Costly: a camera is the most expensive thing in these worlds."),
         ),
         DeclareLaunchArgument("x", default_value="0.0",

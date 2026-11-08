@@ -77,6 +77,11 @@
   gz_type_name: "gz.msgs.NavSat"
   direction: GZ_TO_ROS
 
+# ── Camera ───────────────────────────────────────────────────────────────────
+#
+# Dropped as well when a vehicle is spawned with camera:=false (a convoy's
+# followers). vehicles.py cuts here too: load bearing, do not reword it.
+
 # The camera publishes the image on its own topic and the calibration on
 # <parent of that topic>/camera_info — which is why the image topic ends in
 # /image rather than being the camera's name.

@@ -101,14 +101,14 @@ before spawning a sixth:
   `/tractor_3/tf_static`): every vehicle uses the same frame names, and on one
   global `/tf` they would overwrite each other. A node that reads a vehicle's TF
   remaps `/tf` and `/tf_static` to the relative names, as `ftl_bringup` does.
-- **Only the leader carries sensors.** A camera is the most expensive thing in
+- **Only the leader carries a camera.** A camera is the most expensive thing in
   any of these worlds — 16.8 of the 62.1 wall-seconds it took to simulate 20 s
   of `citrus_farm_60`, for one — so the followers are spawned with
-  `sensors:=false`. They still drive and still publish odometry; they simply do
-  not look at anything, and the sensor half of their bridge config is dropped
-  with them so that nothing subscribes to a topic that will never carry a
-  message. `followers_sensors:=true` gives them the lot, at the price you would
-  expect.
+  `camera:=false`. They keep GNSS and IMU, which are cheap and are what a
+  follower localises with; the camera half of their bridge config is dropped
+  with the camera, so nothing subscribes to a topic that will never carry a
+  message. `followers_camera:=true` gives them cameras too, at the price you
+  would expect; `followers_sensors:=false` leaves them with no sensors at all.
 
 What one vehicle's bringup consists of lives in the `agro_gz_bringup.vehicles` Python module
 (`agro_gz_bringup/agro_gz_bringup/vehicles.py`, installed with `ament_python_install_package`)
