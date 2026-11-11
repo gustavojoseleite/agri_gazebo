@@ -26,8 +26,16 @@
        with) but not a camera. Defaults to whatever sensors:= says. -->
   <xacro:arg name="camera" default="$(arg sensors)"/>
 
+  <!-- How it is driven: ros2_control (vehicle_control's controllers, the same
+       as on the mock and the machine) or plugin (the Gazebo Ackermann plugin,
+       the old path). See agri_gz_bringup/urdf/control.gz.xacro. -->
+  <xacro:arg name="control" default="ros2_control"/>
+  <xacro:arg name="namespace" default=""/>
+  <xacro:arg name="controllers" default="$(find vehicle_control)/config/pickup.yaml"/>
+
   <xacro:include filename="$(find pickup_description)/urdf/pickup.urdf.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/sensors.gz.xacro"/>
+  <xacro:include filename="$(find agri_gz_bringup)/urdf/control.gz.xacro"/>
 
   <!-- ── Tyres ───────────────────────────────────────────────────────────── -->
 
@@ -39,6 +47,12 @@
   <xacro:gz_wheel_surface link="left_front_wheel" mu="1.1" mu2="0.95"/>
   <xacro:gz_wheel_surface link="right_front_wheel" mu="1.1" mu2="0.95"/>
 
+  <!-- ── Drivetrain, ros2_control ─────────────────────────────────────── -->
+  <xacro:if value="${'$(arg control)' == 'ros2_control'}">
+    <xacro:gz_ros2_control name="pickup"/>
+  </xacro:if>
+
+  <xacro:if value="${'$(arg control)' == 'plugin'}">
   <!-- ── Drivetrain ──────────────────────────────────────────────────────── -->
 
   <!--
@@ -97,6 +111,7 @@
       <joint_name>right_steer_joint</joint_name>
     </plugin>
   </gazebo>
+  </xacro:if>
 
   <!-- ── Sensors ─────────────────────────────────────────────────────────── -->
 

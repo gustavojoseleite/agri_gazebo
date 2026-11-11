@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<!--
+  How a vehicle in Gazebo is driven: through ros2_control (the default) or
+  through the Gazebo Ackermann plugin (control:=plugin, the old path, kept while
+  the new one is proven).
+
+  With ros2_control the vehicle's own <ros2_control> block, from
+  vehicle_common_description, gets the Gazebo hardware plugin, and
+  gz_ros2_control runs a controller manager for it inside the simulator, in the
+  vehicle's namespace. The controllers and their parameters are
+  vehicle_control's, the same as on the mock and on the machine.
+
+  The including <vehicle>.gz.xacro declares the args this file reads:
+    control      ros2_control | plugin
+    namespace    the vehicle's ROS namespace, empty for none
+    controllers  the parameters file: vehicle_control/config/<robot>.yaml,
+                 or the per-namespace copy vehicles.py writes from it
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:include filename="$(find vehicle_common_description)/urdf/ros2_control.xacro"/>
+
+  <xacro:macro name="gz_ros2_control" params="name">
+    <xacro:ackermann_ros2_control name="${name}" plugin="gz_ros2_control/GazeboSimSystem"/>
+    <gazebo>
+      <plugin filename="gz_ros2_control-system"
+              name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+        <parameters>$(arg controllers)</parameters>
+        <xacro:if value="${'$(arg namespace)' != ''}">
+          <ros><namespace>$(arg namespace)</namespace></ros>
+        </xacro:if>
+      </plugin>
+    </gazebo>
+  </xacro:macro>
+
+</robot>

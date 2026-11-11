@@ -26,12 +26,20 @@
        with) but not a camera. Defaults to whatever sensors:= says. -->
   <xacro:arg name="camera" default="$(arg sensors)"/>
 
+  <!-- How it is driven: ros2_control (vehicle_control's controllers, the same
+       as on the mock and the machine) or plugin (the Gazebo Ackermann plugin,
+       the old path). See agri_gz_bringup/urdf/control.gz.xacro. -->
+  <xacro:arg name="control" default="ros2_control"/>
+  <xacro:arg name="namespace" default=""/>
+  <xacro:arg name="controllers" default="$(find vehicle_control)/config/autonomous_tractor.yaml"/>
+
   <!-- Brings in the links, joints and — just as importantly — the properties
        from params.xacro. The plugin below reads wheel_base, track and the wheel
        radii straight back out of them, so resizing the tractor cannot leave the
        controller computing turns for a machine that no longer exists. -->
   <xacro:include filename="$(find autonomous_tractor_description)/urdf/autonomous_tractor.urdf.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/sensors.gz.xacro"/>
+  <xacro:include filename="$(find agri_gz_bringup)/urdf/control.gz.xacro"/>
 
   <!-- ── Tyres ───────────────────────────────────────────────────────────── -->
 
@@ -48,6 +56,12 @@
        scripts (it warns and substitutes one of its own), and the URDF's own
        colours are the prop's, which is the whole point. -->
 
+  <!-- ── Drivetrain, ros2_control ─────────────────────────────────────── -->
+  <xacro:if value="${'$(arg control)' == 'ros2_control'}">
+    <xacro:gz_ros2_control name="autonomous_tractor"/>
+  </xacro:if>
+
+  <xacro:if value="${'$(arg control)' == 'plugin'}">
   <!-- ── Drivetrain ──────────────────────────────────────────────────────── -->
 
   <!--
@@ -130,6 +144,7 @@
       <joint_name>right_steer_joint</joint_name>
     </plugin>
   </gazebo>
+  </xacro:if>
 
   <!-- ── Sensors ─────────────────────────────────────────────────────────── -->
 

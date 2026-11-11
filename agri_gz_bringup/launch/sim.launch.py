@@ -77,11 +77,18 @@ def launch_setup(context, *args, **kwargs):
 
     pose = tuple(LaunchConfiguration(k).perform(context)
                  for k in ("x", "y", "z", "yaw"))
-    return [gz_sim, *vehicle_nodes(robot, name, namespace, pose)]
+    control = LaunchConfiguration("control").perform(context)
+    return [gz_sim, *vehicle_nodes(robot, name, namespace, pose, control=control)]
 
 
 def generate_launch_description():
     return LaunchDescription([
+        DeclareLaunchArgument(
+            "control",
+            default_value="ros2_control",
+            description=("How the vehicles are driven: ros2_control (vehicle_control's "
+                         "controllers) or plugin (the Gazebo Ackermann plugin)."),
+        ),
         DeclareLaunchArgument(
             "robot",
             default_value="autonomous_tractor",

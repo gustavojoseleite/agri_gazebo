@@ -68,6 +68,7 @@ def launch_setup(context, *args, **kwargs):
     leader, follower = arg("leader"), arg("follower")
     leader_name = arg("leader_name") or leader
     prefix = arg("follower_prefix")
+    control = arg("control")
 
     world_path = Path(get_package_share_directory("agri_gz_worlds")) / "worlds" / world
     if not world_path.exists():
@@ -98,12 +99,19 @@ def launch_setup(context, *args, **kwargs):
             (x0 + back_x * spacing * n, y0 + back_y * spacing * n, None, yaw),
             sensors=(n == 0 or follower_sensors),
             camera=(n == 0 or follower_camera),
+            control=control,
         )
     return nodes
 
 
 def generate_launch_description():
     return LaunchDescription([
+        DeclareLaunchArgument(
+            "control",
+            default_value="ros2_control",
+            description=("How the vehicles are driven: ros2_control (vehicle_control's "
+                         "controllers) or plugin (the Gazebo Ackermann plugin)."),
+        ),
         DeclareLaunchArgument(
             "world", default_value="citrus_farm.sdf",
             description="World file, relative to agri_gz_worlds/worlds.",

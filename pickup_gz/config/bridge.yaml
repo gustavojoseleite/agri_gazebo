@@ -24,6 +24,13 @@
   gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
 
+# ── Drive ────────────────────────────────────────────────────────────────────
+#
+# Only with control:=plugin, the Gazebo Ackermann plugin. With ros2_control
+# (the default) the controller publishes odom, tf and joint_states itself and
+# reads cmd_vel through vehicle_control's cmd_vel_limiter, so vehicles.py drops
+# everything from here to the Sensors marker: load bearing, do not reword it.
+
 # Velocity command: the only topic flowing into the simulator. Both Ackermann
 # instances (rear axle and front axle) listen on it.
 - ros_topic_name: "cmd_vel"

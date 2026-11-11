@@ -70,10 +70,24 @@ ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 2.0}, angular: {z:
 ros2 topic echo /odom
 ```
 
-`angular.z` is a **yaw rate**, not a steering angle: the plugin works out what the front
-wheels have to do to produce it, and the two of them end up at different angles — that is
+`angular.z` is a **yaw rate**, not a steering angle: the steering controller works out what
+the front wheels have to do to produce it, and the two of them end up at different angles — that is
 what Ackermann means. Ask for more than the geometry can give and it saturates at the
 steering limit instead of refusing.
+
+### How the vehicles are driven
+
+By **ros2_control**, the default: each vehicle's `<ros2_control>` block (from
+`vehicle_common_description`) gets the Gazebo hardware plugin, `gz_ros2_control` runs a
+controller manager for it inside the simulator, in the vehicle's namespace, and
+`vehicles.py` spawns `joint_state_broadcaster` and `ackermann_steering_controller` and starts
+`cmd_vel_limiter` in front of it. The controllers, their parameters and the limits are
+`vehicle_control`'s, the same as on the mock and on the machine; nothing about driving is
+configured here. Topics are unchanged: `cmd_vel` in, `odom`, `tf` and `joint_states` out.
+
+`control:=plugin` (on `sim.launch.py`, `convoy.launch.py` and FTL's launches) brings back the
+old path, the Gazebo Ackermann plugin with the drive section of `bridge.yaml`. It stays while
+ros2_control is being proven and then goes; the comparison is in `vehicle_control`'s README.
 
 ### A convoy
 
