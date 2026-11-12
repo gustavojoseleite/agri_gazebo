@@ -16,12 +16,19 @@ and nothing else is looked up. Each <robot>_gz still keeps a three-line
 sim.launch.py of its own so that `ros2 launch autonomous_tractor_gz
 sim.launch.py` works and tab-completes; it forwards to this one.
 
-Four processes come up together:
+These come up together:
 
   gz sim                  the simulator, running the world
   robot_state_publisher   URDF + /joint_states -> the TF tree
   create                  spawns the robot from the robot_description topic
-  parameter_bridge        connects the gz topics to ROS
+  parameter_bridge        connects the gz topics (clock, sensors) to ROS
+  spawner                 joint_state_broadcaster and ackermann_steering_controller,
+                          in the controller manager gz_ros2_control runs inside
+                          Gazebo (control:=ros2_control, the default)
+  cmd_vel_limiter         cmd_vel -> limits -> the steering controller
+
+control:=plugin swaps the last two for the Gazebo Ackermann plugin and the
+drive section of bridge.yaml (odom, tf, joint_states across the bridge).
 
 Two names, two different jobs:
 

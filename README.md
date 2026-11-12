@@ -68,6 +68,7 @@ Or command it directly, which is what a script would do:
 ```bash
 ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 2.0}, angular: {z: 0.3}}" -r 20
 ros2 topic echo /odom
+ros2 control list_controllers           # both should be active a few seconds after the spawn
 ```
 
 `angular.z` is a **yaw rate**, not a steering angle: the steering controller works out what
@@ -84,6 +85,12 @@ controller manager for it inside the simulator, in the vehicle's namespace, and
 `cmd_vel_limiter` in front of it. The controllers, their parameters and the limits are
 `vehicle_control`'s, the same as on the mock and on the machine; nothing about driving is
 configured here. Topics are unchanged: `cmd_vel` in, `odom`, `tf` and `joint_states` out.
+
+The controllers are active a few seconds after a vehicle spawns; until then it does not move,
+and a `cmd_vel` sent earlier is simply dropped by the limiter after 0.5 s. In a convoy each
+vehicle has its own manager, `/<namespace>/controller_manager`, and every one blocks the
+simulator for a moment while it loads, so a five-vehicle start-up takes the better part of a
+minute. Run Gazebo with a GPU: without one `citrus_farm` runs at about a tenth of real time.
 
 `control:=plugin` (on `sim.launch.py`, `convoy.launch.py` and FTL's launches) brings back the
 old path, the Gazebo Ackermann plugin with the drive section of `bridge.yaml`. It stays while
@@ -107,9 +114,9 @@ tractor and the next.
 Two things make five vehicles in one world work, and both are worth knowing
 before spawning a sixth:
 
-- **Each machine is its own ROS namespace.** The plugins scope their gz topics
-  under `/model/<name>/`, so without it all five arrive on `/cmd_vel` and
-  `/odom` and fight. Driving the third one is
+- **Each machine is its own ROS namespace.** Its controller manager, its
+  controllers and its sensors' topics live in it; without it all five would
+  arrive on `/cmd_vel` and `/odom` and fight. Driving the third one is
   `ros2 run vehicle_control teleop_key --ros-args -r __ns:=/tractor_3`.
   Each one also keeps its **TF tree in its namespace** (`/tractor_3/tf`,
   `/tractor_3/tf_static`): every vehicle uses the same frame names, and on one
@@ -150,8 +157,9 @@ ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor world:=citru
 ros2 run road_follow road_follow                     # second shell
 ```
 
-What comes across the bridge: `/odom`, `/joint_states`, `/tf`, `/imu/data`, `/gnss/fix`,
-`/camera_front/image_raw` and `/camera_front/camera_info`. No lidar — see below.
+What a vehicle publishes: `/odom`, `/joint_states` and `/tf` from its controllers, and across
+the bridge `/clock`, `/imu/data`, `/gnss/fix`, `/camera_front/image_raw` and
+`/camera_front/camera_info`. No lidar — see below.
 
 The vehicle starts **at the centre of the world**, on the carreador that runs through the origin
 and pointing down it, in any of these worlds and with no per-world pose: see the conventions
