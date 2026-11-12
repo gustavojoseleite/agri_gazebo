@@ -1,820 +1,820 @@
 # agri_gazebo
 
-The agricultural simulation platform: citrus-farm worlds, every vehicle's Gazebo half
-(plugins, sensors, bridge) and the launch files that put any of them into any world. Shared by
-every project in the workspace; nothing here knows about a particular project.
+A plataforma de simulação agrícola: mundos de fazenda de citros, a metade Gazebo de cada veículo
+(plugins, sensores, bridge) e os launches que põem qualquer um deles em qualquer mundo.
+Compartilhada por todo projeto do workspace; nada aqui sabe de um projeto em particular.
 
 ```
-agri_gz_worlds/               worlds shared by every vehicle
+agri_gz_worlds/               mundos comuns a todos os veículos
 ├── worlds/
-│   ├── empty.sdf             ground, sun, the systems: the smoke test
-│   └── citrus_farm{,_90,_60,_30}.sdf      one property, one road network each
-├── models/                   the props those fields <include>
-├── scripts/                  the generators: the worlds, and the citrus meshes
-└── docs/citrus/              the photographs the farms were built from
-agri_gz_bringup/              the launches every vehicle shares (one vehicle, a convoy),
-│                             the vehicles Python module behind them, the gz sensor macros
-autonomous_tractor_gz/        the tractor in Gazebo: gz tags, plugins, bridge, spawn height, launch
-pickup_gz/                    the same, for the pickup
+│   ├── empty.sdf             chão, sol, os sistemas: o teste de fumaça
+│   └── citrus_farm{,_90,_60,_30}.sdf      uma propriedade, uma rede de estradas cada
+├── models/                   os adereços que esses campos <include>em
+├── scripts/                  os geradores: os mundos e as malhas dos citros
+└── docs/citrus/              as fotografias a partir das quais as fazendas foram feitas
+agri_gz_bringup/              os launches que todo veículo compartilha (um veículo, um comboio),
+│                             o módulo Python vehicles por trás deles, os macros gz de sensores
+autonomous_tractor_gz/        o trator no Gazebo: tags gz, plugins, bridge, altura de spawn, launch
+pickup_gz/                    o mesmo, para a pickup
 ```
 
-Driving a vehicle is not here: keyboard teleoperation is in the `vehicle_control` repository,
-and the camera road follower is in the `ftl` repository, which uses it to drive its leader.
+Dirigir um veículo não é daqui: a teleoperação pelo teclado está no repositório
+`vehicle_control`, e o seguidor de estrada por câmera está no repositório `ftl`, que o usa para
+dirigir o líder.
 
+O `agri_gz_bringup` é o que impede um segundo veículo de ser uma cópia do primeiro. O seu
+`sim.launch.py` sobe qualquer um deles — ele acha `urdf/<veiculo>.gz.xacro` e `config/bridge.yaml`
+dentro de `<veiculo>_gz` por convenção — e o seu `urdf/sensors.gz.xacro` guarda a metade Gazebo de
+todo sensor: taxa, ruído, campo de visão. A metade da descrição (onde o sensor fica) mora no
+repositório `robot_description`, e as duas se juntam pelo nome do link.
 
-`agri_gz_bringup` is what keeps a second vehicle from being a copy of the first. Its
-`sim.launch.py` brings up any of them — it finds `urdf/<vehicle>.gz.xacro` and
-`config/bridge.yaml` inside `<vehicle>_gz` by convention — and its
-`urdf/sensors.gz.xacro` holds the Gazebo half of every sensor: rate, noise, field of view.
-The description half (where the sensor sits) lives in the `robot_description` repository,
-and the two are joined by link name.
+O alvo é o **Gazebo Harmonic**, a versão pareada com o ROS 2 Jazzy. Os comandos são `gz sim` (o
+antigo `ign gazebo` é do Fortress, e `gzserver`/`gzclient` do Gazebo Classic, que chegou ao fim da
+vida em janeiro de 2025).
 
-Targets **Gazebo Harmonic**, the version paired with ROS 2 Jazzy. The commands are `gz sim`
-(the older `ign gazebo` belongs to Fortress, and `gzserver`/`gzclient` to Gazebo Classic, which
-reached end of life in January 2025).
-
-## Running
+## Rodando
 
 ```bash
-ros2 launch autonomous_tractor_gz sim.launch.py                # world + tractor + bridge, GUI
-ros2 launch autonomous_tractor_gz sim.launch.py gui:=false     # headless, for CI
+ros2 launch autonomous_tractor_gz sim.launch.py                # mundo + trator + bridge, GUI
+ros2 launch autonomous_tractor_gz sim.launch.py gui:=false     # headless, para CI
 ros2 launch autonomous_tractor_gz sim.launch.py world:=empty.sdf
 ros2 launch autonomous_tractor_gz sim.launch.py world:=citrus_farm.sdf
 
-# The same, through the generic launch, plus where to put the machine:
+# O mesmo, pelo launch genérico, mais onde pôr a máquina:
 ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor \
     world:=citrus_farm_60.sdf x:=-40 y:=6 yaw:=1.5708
 ```
 
-`world:` is a file under `agri_gz_worlds/worlds/`. Bare `gz sim citrus_farm_90.sdf` also works,
-from any directory: the environment hook puts that directory on `GZ_SIM_RESOURCE_PATH`.
+`world:` é um arquivo em `agri_gz_worlds/worlds/`. Um `gz sim citrus_farm_90.sdf` puro também
+funciona, de qualquer diretório: o hook de ambiente põe aquele diretório no
+`GZ_SIM_RESOURCE_PATH`.
 
-Drive it from a second shell. Join the *running* container rather than starting another one, so
-both shells share the same ROS graph:
+Dirija de um segundo shell. Entre no container *que está rodando* em vez de abrir outro, para os
+dois shells compartilharem o mesmo grafo ROS:
 
 ```bash
 docker exec -it ros2-ws-dev bash
 ```
 
-Then drive it, with the keyboard node from the `vehicle_control` repository (see its README
-for why it steers by curvature and not by yaw rate):
+Depois dirija com o nó de teclado do repositório `vehicle_control` (veja no README de lá por que
+ele esterça por curvatura, e não por taxa de yaw):
 
 ```bash
-ros2 run vehicle_control teleop_key      # keyboard: throttle latches, wheel self-centres
+ros2 run vehicle_control teleop_key      # teclado: o acelerador trava, o volante volta ao centro
 ```
 
-Or command it directly, which is what a script would do:
+Ou comande direto, que é o que um script faria:
 
 ```bash
 ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 2.0}, angular: {z: 0.3}}" -r 20
 ros2 topic echo /odom
-ros2 control list_controllers           # both should be active a few seconds after the spawn
+ros2 control list_controllers           # os dois devem estar active alguns segundos após o spawn
 ```
 
-`angular.z` is a **yaw rate**, not a steering angle: the steering controller works out what
-the front wheels have to do to produce it, and the two of them end up at different angles — that is
-what Ackermann means. Ask for more than the geometry can give and it saturates at the
-steering limit instead of refusing.
+`angular.z` é uma **taxa de yaw**, não um ângulo de direção: o controlador de direção calcula o que
+as rodas dianteiras precisam fazer para produzi-la, e as duas acabam em ângulos diferentes — é isso
+que Ackermann quer dizer. Peça mais do que a geometria dá e ele satura no limite da direção em vez
+de recusar.
 
-### How the vehicles are driven
+### Como os veículos são dirigidos
 
-By **ros2_control**, the default: each vehicle's `<ros2_control>` block (from
-`vehicle_common_description`) gets the Gazebo hardware plugin, `gz_ros2_control` runs a
-controller manager for it inside the simulator, in the vehicle's namespace, and
-`vehicles.py` spawns `joint_state_broadcaster` and `ackermann_steering_controller` and starts
-`cmd_vel_limiter` in front of it. The controllers, their parameters and the limits are
-`vehicle_control`'s, the same as on the mock and on the machine; nothing about driving is
-configured here. Topics are unchanged: `cmd_vel` in, `odom`, `tf` and `joint_states` out.
+Pelo **ros2_control**, o padrão: o bloco `<ros2_control>` de cada veículo (do
+`vehicle_common_description`) recebe o plugin de hardware do Gazebo, o `gz_ros2_control` roda um
+controller manager para ele dentro do simulador, no namespace do veículo, e o `vehicles.py` cria o
+`joint_state_broadcaster` e o `ackermann_steering_controller` e inicia o `cmd_vel_limiter` na
+frente dele. Os controladores, seus parâmetros e os limites são do `vehicle_control`, os mesmos do
+mock e da máquina; nada de condução é configurado aqui. Os tópicos não mudaram: `cmd_vel` entra,
+`odom`, `tf` e `joint_states` saem.
 
-The controllers are active a few seconds after a vehicle spawns; until then it does not move,
-and a `cmd_vel` sent earlier is simply dropped by the limiter after 0.5 s. In a convoy each
-vehicle has its own manager, `/<namespace>/controller_manager`, and every one blocks the
-simulator for a moment while it loads, so a five-vehicle start-up takes the better part of a
-minute. Run Gazebo with a GPU: without one `citrus_farm` runs at about a tenth of real time.
+Os controladores ficam ativos alguns segundos depois que um veículo é criado; até lá ele não anda,
+e um `cmd_vel` enviado antes é simplesmente descartado pelo limiter depois de 0,5 s. Num comboio
+cada veículo tem o seu manager, `/<namespace>/controller_manager`, e cada um trava o simulador por
+um momento enquanto carrega, então a partida de cinco veículos leva boa parte de um minuto. Rode o
+Gazebo com GPU: sem ela o `citrus_farm` roda a cerca de um décimo do tempo real.
 
-`control:=plugin` (on `sim.launch.py`, `convoy.launch.py` and FTL's launches) brings back the
-old path, the Gazebo Ackermann plugin with the drive section of `bridge.yaml`. It stays while
-ros2_control is being proven and then goes; the comparison is in `vehicle_control`'s README.
+`control:=plugin` (no `sim.launch.py`, no `convoy.launch.py` e nos launches do FTL) traz de volta o
+caminho antigo, o plugin Ackermann do Gazebo com a seção de tração do `bridge.yaml`. Ele fica
+enquanto o ros2_control está sendo provado e depois sai; a comparação está no README do
+`vehicle_control`.
 
-### A convoy
+### Um comboio
 
 ```bash
-ros2 launch agri_gz_bringup convoy.launch.py                      # pickup + 4 tractors
+ros2 launch agri_gz_bringup convoy.launch.py                      # pickup + 4 tratores
 ros2 launch agri_gz_bringup convoy.launch.py spacing:=15.0 followers:=2
 ros2 launch agri_gz_bringup convoy.launch.py leader:=autonomous_tractor follower:=pickup
 ```
 
-By default a **pickup** in front and **four autonomous tractors** behind it, nose to tail
-down the main carreador at ten metres, the leader on the world origin facing
-east. `leader:=` and `follower:=` take any vehicle type that has a `<vehicle>_gz` package;
-the followers are named `<follower_prefix>_<n>` (`tractor_1`… by default). The convoy only
-lines machines up: what they do next belongs to the project that launched it. Ten metres between `base_link`s is 6.4 m of daylight between one 3.6 m
-tractor and the next.
+Por padrão, uma **pickup** na frente e **quatro tratores autônomos** atrás, em fila pelo carreador
+principal a dez metros, o líder na origem do mundo virado para leste. `leader:=` e `follower:=`
+aceitam qualquer tipo de veículo que tenha um pacote `<veiculo>_gz`; os seguidores se chamam
+`<follower_prefix>_<n>` (`tractor_1`… por padrão). O comboio só alinha as máquinas: o que elas
+fazem depois é do projeto que o lançou. Dez metros entre `base_link`s são 6,4 m de espaço livre
+entre um trator de 3,6 m e o seguinte.
 
-Two things make five vehicles in one world work, and both are worth knowing
-before spawning a sixth:
+Duas coisas fazem cinco veículos num mundo funcionarem, e as duas valem ser conhecidas antes de
+criar um sexto:
 
-- **Each machine is its own ROS namespace.** Its controller manager, its
-  controllers and its sensors' topics live in it; without it all five would
-  arrive on `/cmd_vel` and `/odom` and fight. Driving the third one is
-  `ros2 run vehicle_control teleop_key --ros-args -r __ns:=/tractor_3`.
-  Each one also keeps its **TF tree in its namespace** (`/tractor_3/tf`,
-  `/tractor_3/tf_static`): every vehicle uses the same frame names, and on one
-  global `/tf` they would overwrite each other. A node that reads a vehicle's TF
-  remaps `/tf` and `/tf_static` to the relative names, as `ftl_bringup` does.
-- **Only the leader carries a camera.** A camera is the most expensive thing in
-  any of these worlds — 16.8 of the 62.1 wall-seconds it took to simulate 20 s
-  of `citrus_farm_60`, for one — so the followers are spawned with
-  `camera:=false`. They keep GNSS and IMU, which are cheap and are what a
-  follower localises with; the camera half of their bridge config is dropped
-  with the camera, so nothing subscribes to a topic that will never carry a
-  message. `followers_camera:=true` gives them cameras too, at the price you
-  would expect; `followers_sensors:=false` leaves them with no sensors at all.
+- **Cada máquina é o seu próprio namespace ROS.** O controller manager, os controladores e os
+  tópicos dos sensores dela vivem nele; sem isso os cinco chegariam em `/cmd_vel` e `/odom` e
+  brigariam. Dirigir o terceiro é
+  `ros2 run vehicle_control teleop_key --ros-args -r __ns:=/tractor_3`. Cada um também mantém a
+  sua **árvore de TF no seu namespace** (`/tractor_3/tf`, `/tractor_3/tf_static`): todo veículo
+  usa os mesmos nomes de frame, e num `/tf` global um sobrescreveria o outro. Um nó que lê o TF de
+  um veículo remapeia `/tf` e `/tf_static` para os nomes relativos, como o `ftl_bringup` faz.
+- **Só o líder leva câmera.** Uma câmera é a coisa mais cara de qualquer um destes mundos — 16,8
+  dos 62,1 segundos de parede para simular 20 s do `citrus_farm_60`, uma só — então os seguidores
+  são criados com `camera:=false`. Eles mantêm GNSS e IMU, que são baratos e são com o que um
+  seguidor se localiza; a metade câmera da configuração da bridge deles cai junto com a câmera,
+  então nada assina um tópico que nunca vai ter mensagem. `followers_camera:=true` dá câmeras a
+  eles também, pelo preço que se espera; `followers_sensors:=false` os deixa sem sensor nenhum.
 
-What one vehicle's bringup consists of lives in the `agri_gz_bringup.vehicles` Python module
-(`agri_gz_bringup/agri_gz_bringup/vehicles.py`, installed with `ament_python_install_package`)
-and is used by `sim.launch.py`, `convoy.launch.py` and any project that composes its own
-scenario, because a vehicle is three nodes and a rule about topic names and having that written
-twice is having two definitions that will disagree:
+O que o bringup de um veículo é mora no módulo Python `agri_gz_bringup.vehicles`
+(`agri_gz_bringup/agri_gz_bringup/vehicles.py`, instalado com `ament_python_install_package`) e é
+usado pelo `sim.launch.py`, pelo `convoy.launch.py` e por qualquer projeto que monte o próprio
+cenário, porque um veículo são alguns nós e uma regra sobre nomes de tópicos, e ter isso escrito
+duas vezes é ter duas definições que vão discordar:
 
 ```python
 from agri_gz_bringup.vehicles import vehicle_nodes
 nodes = vehicle_nodes("pickup", "pickup", "/pickup", (0.0, 0.0, None, 0.0))   # z None: spawn.yaml
 ```
 
-Each vehicle is dropped from its own height, declared in `<vehicle>_gz/config/spawn.yaml`
-(`z: 0.4` for the tractor on 0.75 m wheels, `0.3` for the pickup), so no launch has to know
-how big a machine is.
+Cada veículo cai da sua própria altura, declarada em `<veiculo>_gz/config/spawn.yaml` (`z: 0.4`
+para o trator, em rodas de 0,75 m, `0.3` para a pickup), então nenhum launch precisa saber o
+tamanho de uma máquina.
 
-### Driving itself, by the edges of the road
+### Dirigindo sozinho, pelas bordas da estrada
 
-`road_follow`, which drives a vehicle down the carreadores by its camera, lives in the `ftl`
-repository now: FTL uses it to drive the leader. Its README carries the whole story of how it
-finds the road. It runs against any vehicle launched from here:
+O `road_follow`, que dirige um veículo pelos carreadores pela câmera, mora agora no repositório
+`ftl`: o FTL o usa para dirigir o líder. O README de lá conta a história inteira de como ele acha a
+estrada. Ele roda com qualquer veículo lançado daqui:
 
 ```bash
 ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor world:=citrus_farm.sdf
-ros2 run road_follow road_follow                     # second shell
+ros2 run road_follow road_follow                     # segundo shell
 ```
 
-What a vehicle publishes: `/odom`, `/joint_states` and `/tf` from its controllers, and across
-the bridge `/clock`, `/imu/data`, `/gnss/fix`, `/camera_front/image_raw` and
-`/camera_front/camera_info`. No lidar — see below.
+O que um veículo publica: `/odom`, `/joint_states` e `/tf` pelos controladores, e pela bridge
+`/clock`, `/imu/data`, `/gnss/fix`, `/camera_front/image_raw` e `/camera_front/camera_info`. Sem
+lidar — veja abaixo.
 
-The vehicle starts **at the centre of the world**, on the carreador that runs through the origin
-and pointing down it, in any of these worlds and with no per-world pose: see the conventions
-below. `/gnss/fix` is reported at `gnss_link`, which sits over the **centre of the machine** at
-2.685 m, and `/camera_front/image_raw` comes from the **front face** of it at 1.460 m — both
-placed and explained in `robot_description`, which owns where a sensor is. Averaging 285 fixes
-with the tractor parked on the origin puts the antenna at 1.122 ± 0.058 m east and
-0.018 ± 0.058 m north of it, against the 1.075 m and 0 the description asks for.
+O veículo começa **no centro do mundo**, no carreador que passa pela origem e apontado ao longo
+dele, em qualquer um destes mundos e sem pose por mundo: veja as convenções abaixo. O `/gnss/fix`
+é reportado no `gnss_link`, que fica sobre o **centro da máquina** a 2,685 m, e a
+`/camera_front/image_raw` vem da **face dianteira** dela a 1,460 m — os dois posicionados e
+explicados no `robot_description`, que é o dono de onde um sensor fica. A média de 285 fixes com o
+trator parado na origem põe a antena a 1,122 ± 0,058 m a leste e 0,018 ± 0,058 m ao norte dela,
+contra os 1,075 m e 0 que a descrição pede.
 
-## Agricultural worlds
+## Mundos agrícolas
 
-`agri_gz_worlds/worlds/` holds one property in five cuts, and the empty world to fall back on. The
-field is laid out the way a real one is: talhões of planted rows, carreadores wide enough to turn
-a machine in, a headland at the ends of the rows, and a boundary that has to be respected.
+`agri_gz_worlds/worlds/` guarda uma propriedade em quatro cortes e o mundo vazio para recorrer. O
+campo é disposto como um de verdade: talhões de fileiras plantadas, carreadores largos o bastante
+para manobrar uma máquina, uma cabeceira no fim das fileiras e uma divisa que tem de ser
+respeitada.
 
-The four farms share their ground, their planting, their mata and their yard. The **only**
-difference between them is the bends their roads turn, which is what makes them worth comparing:
-ask what a 30 costs a robot that a 90 does not, and the world is the only variable. Three of them
-take one angle throughout; the fourth mixes all three, for when the field should have the variety
-a real property has rather than the one variable an experiment wants.
+As quatro fazendas compartilham o chão, o plantio, a mata e o pátio. A **única** diferença entre
+elas são as curvas que as estradas fazem, e é isso que as torna dignas de comparação: pergunte o
+que uma de 30 custa a um robô que uma de 90 não custa, e o mundo é a única variável. Três delas
+usam um ângulo só; a quarta mistura os três, para quando o campo deve ter a variedade de uma
+propriedade real, e não a variável única que um experimento quer.
 
-| World | Field | What it is for |
+| Mundo | Campo | Para que serve |
 |-------|-------|----------------|
-| `citrus_farm_90.sdf` | 410 × 410 m, 5421 trees, 10 bends | **Roads that cross the property**, not rings inside it: four carreadores run edge to edge and cross each other, and the talhões are whatever the crossings leave over. Every bend is 90°, boundary included. The tractor and its bin trailer are parked in the yard beside the shed, 20 m from the origin. All four tree models are planted in it, as in its two siblings. |
-| `citrus_farm_60.sdf` | the same property, 4835 trees, three carreadores | Each road takes one turn out and one back. A boundary that closes on itself has turned 360°, so at 60° it is a hexagon. This is also the world carrying the one talhão that **bears fruit** — six rows, 131 trees, the first 11 m south of the origin. |
-| `citrus_farm_30.sdf` | the same property, 4538 trees, two carreadores | A 30 barely changes where a road is pointing, so a corner takes three bends in a row and two roads is all the property will hold: any more and they run alongside each other instead of crossing. The angle showing through the layout rather than being decoration on it. |
-| `citrus_farm.sdf` | a **560 m square**, one crossroads, **four talhões** of 266 m, 13 600 trees, **plus four oblique roads**: 60° in each upper talhão, 30° in each lower one | The property this workspace is really about. Four boundary corners of 90°, all bladed round at 24 m and all painted; two carreadores running edge to edge and crossing at the origin at a right angle, cut square, with no number on either — a crossroads is not a turn. The planting is the four quadrants those roads leave and nothing else: **every talhão is bounded by carreadores on all four sides**, rows east-west in two of them and north-south in the other two, and **one crown to a block** — two smooth and two lumpy, one of each pair carrying fruit. The mata is a **belt right round the outside**. Each upper oblique road is **60° at all three of its points**: it leaves the boundary road at 60° rather than square to it, turns 60° in the **middle of its block**, and meets the main carreador at 60°. Each lower one is **30° at both its junctions**, off the main and onto the side boundary, with the bend 72 m from the middle of its block: at 30° no rectangle can have both, and the section below shows why. Each pair mirrors itself, east and west, and all four are painted with their angle. |
-| `empty.sdf` | ground, sun, the systems | The smoke test. If a vehicle misbehaves here, the world is not the reason. |
+| `citrus_farm_90.sdf` | 410 × 410 m, 5421 árvores, 10 curvas | **Estradas que atravessam a propriedade**, e não anéis dentro dela: quatro carreadores vão de borda a borda e se cruzam, e os talhões são o que os cruzamentos deixam. Toda curva é de 90°, divisa incluída. O trator e a carreta de bins ficam estacionados no pátio ao lado do galpão, a 20 m da origem. Os quatro modelos de árvore estão plantados nele, como nos dois irmãos. |
+| `citrus_farm_60.sdf` | a mesma propriedade, 4835 árvores, três carreadores | Cada estrada faz uma curva para fora e uma de volta. Uma divisa que se fecha em si girou 360°, então a 60° ela é um hexágono. Este também é o mundo com o único talhão que **dá fruta** — seis fileiras, 131 árvores, a primeira a 11 m ao sul da origem. |
+| `citrus_farm_30.sdf` | a mesma propriedade, 4538 árvores, dois carreadores | Uma de 30 mal muda para onde a estrada aponta, então uma esquina leva três curvas seguidas, e duas estradas é tudo o que a propriedade comporta: mais que isso e elas correm lado a lado em vez de se cruzar. O ângulo aparecendo no traçado, e não como enfeite. |
+| `citrus_farm.sdf` | um **quadrado de 560 m**, um cruzamento, **quatro talhões** de 266 m, 13 600 árvores, **mais quatro estradas oblíquas**: 60° em cada talhão de cima, 30° em cada um de baixo | A propriedade de que este workspace realmente trata. Quatro cantos de divisa de 90°, todos arredondados a 24 m e todos pintados; dois carreadores de borda a borda cruzando na origem em ângulo reto, cortados em esquadro, sem número em nenhum — um cruzamento não é uma curva. O plantio são os quatro quadrantes que essas estradas deixam e nada mais: **todo talhão é cercado por carreadores nos quatro lados**, fileiras leste-oeste em dois e norte-sul nos outros dois, e **uma copa por talhão** — duas lisas e duas irregulares, uma de cada par com fruta. A mata é um **cinturão em volta de tudo**. Cada estrada oblíqua de cima é **60° nos seus três pontos**: sai da estrada da divisa a 60° em vez de em esquadro, vira 60° no **meio do seu talhão** e encontra o carreador principal a 60°. Cada uma de baixo é **30° nos dois entroncamentos**, saindo do principal e chegando à divisa lateral, com a curva a 72 m do meio do talhão: a 30° nenhum retângulo comporta as duas coisas, e a seção abaixo mostra por quê. Cada par se espelha, leste e oeste, e as quatro têm o ângulo pintado. |
+| `empty.sdf` | chão, sol, os sistemas | O teste de fumaça. Se um veículo se comporta mal aqui, o mundo não é o motivo. |
 
-**What is loose in the headland: standing timber and rocks.** There were cupinzeiros here — forty
-1 m mounds of brown ellipsoids, scattered beside the carreadores — and they came out: at that size
-nobody looking at the world could tell what they were meant to be, and a brown lump beside a road
-reads as something dropped rather than something grown. They are `forest_tree` now, standing where
-the mounds stood, 7.5 m from the carreador's centreline, which puts the trunk 1.5 m outside the
-bare earth and leaves the canopy leaning a metre over the shoulder, the way a tree beside a farm
-road does. What it must not lean over is the 7 m of running surface, and at 2.6 m of canopy from
-7.5 m out it clears that by 1.4 m.
+**O que fica solto na cabeceira: árvores nativas e pedras.** Havia cupinzeiros aqui — quarenta
+montes de 1 m feitos de elipsoides marrons, espalhados ao lado dos carreadores — e eles saíram:
+nesse tamanho ninguém olhando o mundo sabia o que eles deviam ser, e um caroço marrom ao lado de uma
+estrada parece algo que caiu, e não algo que cresceu. Agora são `forest_tree`, de pé onde os montes
+estavam, a 7,5 m da linha central do carreador, o que põe o tronco 1,5 m fora da terra nua e deixa
+a copa inclinada um metro sobre o acostamento, como uma árvore ao lado de uma estrada de fazenda. O
+que ela não pode cobrir são os 7 m de pista de rodagem, e com 2,6 m de copa a 7,5 m ela os livra
+por 1,4 m.
 
-Trees and rocks are placed **alternately** rather than one kind and then the other, which matters
-in `citrus_farm`: a property planted right up to its carreadores has room for twenty-two loose
-things where the worlds whose blocks leave slack take all fifty-eight, and whichever kind ran
-first took the lot. Taking turns, `citrus_farm` ends with 14 trees and 8 rocks and the other three
-with the full 40 and 18.
+Árvores e pedras são postas **alternadas**, e não um tipo e depois o outro, o que importa no
+`citrus_farm`: uma propriedade plantada até os carreadores tem lugar para vinte e duas coisas soltas,
+onde os mundos cujos talhões deixam folga levam as cinquenta e oito, e o tipo que vinha primeiro
+levava tudo. Revezando, o `citrus_farm` termina com 14 árvores e 8 pedras e os outros três com as
+40 e 18 completas.
 
-### Four crowns, and the rows are baked
+### Quatro copas, e as fileiras são pré-assadas
 
-A property is planted with **four tree models**, and which talhão gets which is one table,
-`PLANTING`, near the top of the generator. The same table in all three worlds, so the crowns are
-never what is different between them:
+Uma propriedade é plantada com **quatro modelos de árvore**, e qual talhão recebe qual é uma
+tabela, `PLANTING`, perto do topo do gerador. A mesma tabela nos três mundos, então as copas nunca
+são o que difere entre eles:
 
-| Talhão | Crown | Why |
-|--------|-------|-----|
-| eleven of fourteen | `citrus_tree` | The polygon crown, baked eight to a run. The default, and the only one that is nearly free. |
-| **e** (north west), **l** (south of the yard) | `citrus_round` | One ellipsoid, same envelope. The control block. |
-| **n** (at the crossroads) | `citrus_tree_fruit` | 131 trees carrying oranges, 11 m south of the origin. |
-| the four matas | `forest_tree` | Two nested ellipsoids on a trunk, scattered, not rowed. |
+| Talhão | Copa | Por quê |
+|--------|------|---------|
+| onze de catorze | `citrus_tree` | A copa poligonal, pré-assada oito por trecho. O padrão, e o único quase de graça. |
+| **e** (noroeste), **l** (ao sul do pátio) | `citrus_round` | Um elipsoide, o mesmo envelope. O talhão de controle. |
+| **n** (no cruzamento) | `citrus_tree_fruit` | 131 árvores com laranjas, a 11 m ao sul da origem. |
+| as quatro matas | `forest_tree` | Dois elipsoides aninhados num tronco, espalhados, sem fileira. |
 
-They are spread rather than adjacent on purpose: no route across the property misses them, and
-none of them can be confused with a change in the ground. On the plan in each world's header they
-are `:`, `o`, `*` and `#`.
+Eles estão espalhados, e não lado a lado, de propósito: nenhuma rota pela propriedade deixa de
+passar por eles, e nenhum pode ser confundido com uma mudança no chão. No mapa do cabeçalho de cada
+mundo eles são `:`, `o`, `*` e `#`.
 
-These worlds used to draw a citrus as **one ellipsoid floating at 1.75 m with nothing under it**.
-The defence was cost: a trunk would double the visual count at 2275 trees. That defence was about
-a trunk as a *second shape*. The mesh crown carries **its trunk inside the same mesh**, so the
-trunk is free — Gazebo charges per **entity**, not per triangle — and `citrus_round` is the old
-ellipsoid brought back deliberately, skirted to the ground rather than hovering over nothing. The
-shape was never the problem; the floating was.
+Estes mundos desenhavam um citros como **um elipsoide flutuando a 1,75 m sem nada embaixo**. A
+defesa era o custo: um tronco dobraria a contagem de visuais com 2275 árvores. Essa defesa era sobre
+um tronco como *segunda forma*. A copa em malha leva **o tronco dentro da mesma malha**, então o
+tronco sai de graça — o Gazebo cobra por **entidade**, não por triângulo — e o `citrus_round` é o
+elipsoide antigo trazido de volta de propósito, com a saia até o chão em vez de pairar sobre o nada.
+A forma nunca foi o problema; a flutuação era.
 
-What is *not* free is the entity. The server walks every `<visual>` on every step whether or not
-it moves and whether or not anything is rendering, and `citrus_farm_60` carried **7255** of them,
-4966 being trees. Stripping the visuals out entirely took it from 312 physics steps a second to
-1428 — that is where the real-time factor was going.
+O que *não* é de graça é a entidade. O servidor percorre todo `<visual>` a cada passo, se mova ou
+não e haja algo renderizando ou não, e o `citrus_farm_60` tinha **7255** deles, 4966 sendo árvores.
+Tirar os visuais por completo o levou de 312 passos de física por segundo a 1428 — era para lá que o
+fator de tempo real estava indo.
 
-So the trees are **baked into runs**: eight to a mesh, then four, then two, from a library in
-`models/citrus_tree/meshes/`, leaving at most one tree of any row planted on its own. Measured
-back to back on the same machine, `citrus_farm_60`:
+Então as árvores são **pré-assadas em trechos**: oito por malha, depois quatro, depois duas, de uma
+biblioteca em `models/citrus_tree/meshes/`, deixando no máximo uma árvore de qualquer fileira
+plantada sozinha. Medido em sequência na mesma máquina, `citrus_farm_60`:
 
-| | visuals | steps/s | RTF at the world's 3 ms |
+| | visuais | passos/s | RTF no passo de 3 ms do mundo |
 |---|---|---|---|
-| one visual per tree | 7255 | 142, 147 | 0.43, 0.44 |
-| baked runs | 3545 | 277, 285 | 0.83, 0.86 |
+| um visual por árvore | 7255 | 142, 147 | 0,43, 0,44 |
+| trechos pré-assados | 3545 | 277, 285 | 0,83, 0,86 |
 
-**1.95× on both repeats**, with the geometry unchanged — the same crowns, in the same places, with the same
-per-tree spin, scale and jitter, baked in instead of applied per visual. (Both runs shared the
-machine with another simulation, which is why the absolute numbers are low; the ratio is the
-point. Alone, the old world measured 312 steps/s.)
+**1,95× nas duas repetições**, com a geometria inalterada — as mesmas copas, nos mesmos lugares, com
+o mesmo giro, escala e jitter por árvore, gravados na malha em vez de aplicados por visual. (As duas
+execuções dividiam a máquina com outra simulação, por isso os números absolutos são baixos; a razão
+é o que importa. Sozinho, o mundo antigo media 312 passos/s.)
 
-Whole rows would be better still — 339 visuals instead of 620 — and are impossible: an OBJ of one
-crown is 87 KB, so unique rows would put **430 MB** of geometry in one world and 1.3 GB across the
-three. Six runs of each length is 10 MB for all of them, and 48 distinct trees is enough that a
-row of forty does not visibly repeat. Eight crowns is also 24 m of hedge, the length a stock
-section of row was always cut to.
+Fileiras inteiras seriam ainda melhores — 339 visuais em vez de 620 — e são impossíveis: um OBJ de
+uma copa tem 87 KB, então fileiras únicas poriam **430 MB** de geometria num mundo e 1,3 GB nos
+três. Seis trechos de cada comprimento são 10 MB para todos, e 48 árvores distintas bastam para uma
+fileira de quarenta não se repetir visivelmente. Oito copas também são 24 m de cerca viva, o
+comprimento em que uma seção padrão de fileira sempre foi cortada.
 
-Three talhões are planted tree by tree anyway, and that is the point of them. The block
-immediately south of the crossroads — six rows, 131 trees, the first 11 m from the origin —
-carries **fruit**, and the fruit mesh belongs to one crown, so there is no baked run wearing any.
-The two round blocks give up the runs for the opposite reason: a primitive cannot be baked into a
-mesh at all. `PLANTING` is what puts each of them where it is.
+Três talhões são plantados árvore por árvore mesmo assim, e esse é o propósito deles. O talhão logo
+ao sul do cruzamento — seis fileiras, 131 árvores, a primeira a 11 m da origem — dá **fruta**, e a
+malha da fruta pertence a uma copa, então não há trecho pré-assado com fruta. Os dois talhões
+redondos abrem mão dos trechos pelo motivo oposto: uma primitiva não pode ser pré-assada numa malha.
+É o `PLANTING` que põe cada um onde está.
 
-**What the sensors cost, measured.** With the tractor spawned in `citrus_farm_60`, timing a fixed
-20 s of *simulated* time (repeatable to 2%; sampling `/stats` instead is not — it ranged 0.19 to
-0.78 for one configuration):
+**O que os sensores custam, medido.** Com o trator criado no `citrus_farm_60`, cronometrando 20 s
+fixos de tempo *simulado* (repetível a 2%; amostrar o `/stats` não é — variou de 0,19 a 0,78 para
+uma mesma configuração):
 
-| | wall clock for 20 s of sim | RTF |
+| | relógio para 20 s de simulação | RTF |
 |---|---|---|
-| lidar 360° at 10 Hz + camera, plants colliding | 62.1 s | 0.32 |
-| without the lidar | 32.8 s | 0.61 |
-| without the lidar, plants not colliding | 27.0 s | **0.74** |
-| also without the roads (not done — see below) | 25.0 s | 0.80 |
+| lidar 360° a 10 Hz + câmera, plantas colidindo | 62,1 s | 0,32 |
+| sem o lidar | 32,8 s | 0,61 |
+| sem o lidar, plantas sem colisão | 27,0 s | **0,74** |
+| também sem as estradas (não feito — veja abaixo) | 25,0 s | 0,80 |
 
-The parts are additive: physics and everything that is not a sensor, 14.9 s; the lidar, 30.4 s;
-the camera, 16.8 s. The lidar was half the budget for one sensor, which is why the tractor no
-longer carries one. Physics alone would run at RTF 1.34.
+As partes se somam: física e tudo o que não é sensor, 14,9 s; o lidar, 30,4 s; a câmera, 16,8 s. O
+lidar era metade do orçamento para um sensor só, e por isso o trator não leva mais um. A física
+sozinha rodaria a RTF 1,34.
 
-Two things that sound like fixes and are not. **Raising the physics step**: 3 ms → 6 ms buys 5%
-and 10 ms buys the same 5%, because physics is a quarter of the cost and the sensors are clocked
-in simulated time. **Lowering sensor resolution**: 1280×720 → 640×480 and 900 → 450 lidar samples
-changed nothing measurable. The cost is one scene traversal per frame, and it scales with the
-number of *visuals*, not with pixels: 3563 visuals → 62.1 s, 2925 → 49.8 s, 2128 → 35.4 s.
+Duas coisas que parecem soluções e não são. **Aumentar o passo de física**: 3 ms → 6 ms compra 5%,
+e 10 ms compra os mesmos 5%, porque a física é um quarto do custo e os sensores são cronometrados em
+tempo simulado. **Baixar a resolução dos sensores**: 1280×720 → 640×480 e 900 → 450 amostras de
+lidar não mudaram nada mensurável. O custo é uma travessia da cena por quadro, e escala com o número
+de *visuais*, não de pixels: 3563 visuais → 62,1 s, 2925 → 49,8 s, 2128 → 35,4 s.
 
-**What was on the table, and has been taken.** The road surface used to be cut into tiles by the
-folds in the ground, with no collisions at all: 1435 visuals in `citrus_farm_60`, 40% of that
-world, against 1097 in the 30 and 740 in the 90. Deleting them outright took the configuration
-above from 27.0 s to 25.0 s of wall clock, and before the lidar came off, 62.1 s → 35.4 s. They
-are now one mesh per world instead, which is that saving without the deletion. (An earlier note
-here said the measurement sat inside the noise. It did — because it was taken with no sensor
-rendering, which is exactly when visuals look free.) Raising the physics step from
-3 ms would buy the rest almost linearly: measured on the small rover these worlds were first
-tested with, 1 ms to 8 ms on flat ground made no difference at all (no vertical movement), so
-the room is there if it is ever needed — a 4 t machine on soft tyres is worth re-measuring
-before relying on it.
+**O que estava na mesa, e foi tomado.** A superfície das estradas era cortada em ladrilhos pelas
+dobras do chão, sem colisão nenhuma: 1435 visuais no `citrus_farm_60`, 40% daquele mundo, contra
+1097 no de 30 e 740 no de 90. Apagá-los de vez levou a configuração acima de 27,0 s para 25,0 s de
+relógio, e, antes de o lidar sair, de 62,1 s para 35,4 s. Agora são uma malha por mundo, que é essa
+economia sem apagar nada. (Uma nota anterior aqui dizia que a medição estava dentro do ruído.
+Estava — porque foi tirada sem nenhum sensor renderizando, que é exatamente quando visuais parecem
+de graça.) Aumentar o passo de física de 3 ms compraria o resto quase linearmente: medido no
+pequeno rover com que estes mundos foram testados primeiro, de 1 ms a 8 ms em terreno plano não fez
+diferença nenhuma (sem movimento vertical), então a folga existe se um dia for necessária — uma
+máquina de 4 t em pneus macios merece ser medida de novo antes de se contar com isso.
 
-Four conventions hold in all four, and are worth keeping in a fifth:
+Quatro convenções valem nos quatro, e vale mantê-las num quinto:
 
-- **+X along the rows, +Y across them.** Everything reads more easily once that is fixed.
-- **The origin is on a carreador, on flat ground, at z = 0.** The profile is level between
-  x = ±25 m in every one of these worlds, so the middle of the property is a levelled yard
-  whatever the relief does further out. That is what lets `sim.launch.py` spawn a vehicle in any
-  of them **at the centre of the simulation, with no per-world pose**: the defaults are
-  `x:=0 y:=0 yaw:=0`, and the drop height is the vehicle's own (`config/spawn.yaml`), not a property of the world.
-  Measured, with the tractor spawned in each of the four: it settles at
-  (0.0000, 0.0000, 0.0000) with roll, pitch and yaw all 0.00°.
-- **Ground markings have no collision.** The worked soil of a talhão and the surface of a
-  carreador are painted on the ground, not built up on it: a 2 cm lip is nothing to a tractor and
-  a wall to a small robot on 4 cm casters.
-- **Every plant is static.** A field of dynamic bodies is a field the physics engine solves
-  contacts for at every step, and a barrier that gets nudged aside on the first bump.
+- **+X ao longo das fileiras, +Y através delas.** Tudo fica mais fácil de ler com isso fixo.
+- **A origem fica num carreador, em terreno plano, em z = 0.** O perfil é nivelado entre
+  x = ±25 m em todos estes mundos, então o meio da propriedade é um pátio nivelado faça o relevo o
+  que fizer mais adiante. É isso que deixa o `sim.launch.py` criar um veículo em qualquer um deles
+  **no centro da simulação, sem pose por mundo**: os padrões são `x:=0 y:=0 yaw:=0`, e a altura de
+  queda é do próprio veículo (`config/spawn.yaml`), não uma propriedade do mundo. Medido, com o
+  trator criado em cada um dos quatro: ele assenta em (0,0000, 0,0000, 0,0000) com roll, pitch e
+  yaw todos 0,00°.
+- **Marcas no chão não têm colisão.** O solo trabalhado de um talhão e a superfície de um carreador
+  são pintados no chão, não construídos sobre ele: um degrau de 2 cm não é nada para um trator e é
+  um muro para um robô pequeno em rodízios de 4 cm.
+- **Toda planta é estática.** Um campo de corpos dinâmicos é um campo para o qual o motor de física
+  resolve contatos a cada passo, e uma barreira que é empurrada para o lado no primeiro esbarrão.
 
-**No plant collides, anywhere.** Not in the worlds, where the generator has stripped them since
-the `--collisions ground` default went in, and not in the four tree models either, which now
-carry no `<collision>` at all — so a world that `<include>`s one gets the same deal. A camera and
-a GPU lidar both work off *visuals*, so foliage is still exactly what a sensor sees; the solver
-was being charged for trunk cylinders nothing in a perception run ever touches. Twelve collisions
-survive in each world and they are all ground or building: the eleven terrain slabs and the shed.
-Driving through a tree is the trade; falling through the ground is not.
-`generate_agriculture_worlds.py --collisions full` is still there and puts the world's plant
-collisions back — the model files have none to put back.
+**Nenhuma planta colide, em lugar nenhum.** Nem nos mundos, de onde o gerador as tira desde que o
+padrão `--collisions ground` entrou, nem nos quatro modelos de árvore, que agora não têm
+`<collision>` nenhum — então um mundo que `<include>` um deles recebe o mesmo tratamento. Uma câmera
+e um lidar de GPU trabalham sobre *visuais*, então a folhagem continua sendo exatamente o que um
+sensor vê; o solver estava sendo cobrado por cilindros de tronco que nada numa execução de
+percepção toca. Doze colisões sobram em cada mundo e são todas chão ou construção: as onze placas de
+terreno e o galpão. Atravessar uma árvore é a troca; cair pelo chão não é.
+`generate_agriculture_worlds.py --collisions full` ainda existe e devolve as colisões das plantas ao
+mundo — os arquivos de modelo não têm nenhuma a devolver.
 
-### The model library
+### A biblioteca de modelos
 
-`agri_gz_worlds/models/` is on `GZ_SIM_RESOURCE_PATH`, so any world in the workspace can
-`<include>` these by `model://<name>`. Eight of them: four trees, three machines and a tank.
+`agri_gz_worlds/models/` está no `GZ_SIM_RESOURCE_PATH`, então qualquer mundo do workspace pode
+`<include>` estes por `model://<nome>`. Nove deles: quatro árvores, as estradas, três máquinas e um
+tanque.
 
-None of them collides. Sizes are measured on the geometry, not on the radii it was built from.
+Nenhum deles colide. Os tamanhos são medidos na geometria, não nos raios de que ela foi feita.
 
-| Tree | Size | Visuals | Notes |
-|------|------|---------|-------|
-| `citrus_tree` | 3.95 × 2.83 m | 1 | Polygon crown, trunk inside the same mesh. Six variants in `meshes/`, plus the runs of 2, 4 and 8 the rows are actually laid from — which is what makes one visual do for eight trees. **What most of every talhão is planted with.** |
-| `citrus_tree_fruit` | 3.95 × 2.83 m | 2 | The same crown with a second mesh of oranges in it. No baked run wears fruit, so a fruiting row is planted one tree at a time and then pays for the fruit on top: sixteen times the entities of the same row in runs. One talhão carries it. |
-| `citrus_round` | 3.12 × 2.76 m | 2 | Trunk and one ellipsoid — the sphere the mesh is pushed out of, averaged round in plan, on 0.44 m of visible trunk. The **control**: what a perception stack does differently between a round talhão and a mesh one came from the foliage and not from the field. |
-| `forest_tree` | 5.16 × 6.71 m | 3 | Two ellipsoids, one inside the other, on a trunk — canopy from 2.59 m up, so a boom passes under it. What the **mata** is made of, scattered rather than rowed. |
-| `carreador` | — | 0 | Not a model anyone places: the baked roads. One OBJ per world holding every carreador of it as a named strip — bare earth and running surface — which each world picks out by name with `<submesh>`. Written with the worlds, never by hand. |
+| Árvore | Tamanho | Visuais | Notas |
+|--------|---------|---------|-------|
+| `citrus_tree` | 3,95 × 2,83 m | 1 | Copa poligonal, tronco na mesma malha. Seis variantes em `meshes/`, mais os trechos de 2, 4 e 8 com que as fileiras são de fato montadas — é o que faz um visual servir para oito árvores. **Do que a maior parte de todo talhão é plantada.** |
+| `citrus_tree_fruit` | 3,95 × 2,83 m | 2 | A mesma copa com uma segunda malha de laranjas dentro. Nenhum trecho pré-assado tem fruta, então uma fileira com fruta é plantada uma árvore por vez e ainda paga a fruta por cima: dezesseis vezes as entidades da mesma fileira em trechos. Um talhão a leva. |
+| `citrus_round` | 3,12 × 2,76 m | 2 | Tronco e um elipsoide — a esfera de que a malha é empurrada para fora, arredondada em planta, sobre 0,44 m de tronco visível. O **controle**: o que uma pilha de percepção faz de diferente entre um talhão redondo e um em malha vem da folhagem, e não do campo. |
+| `forest_tree` | 5,16 × 6,71 m | 3 | Dois elipsoides, um dentro do outro, num tronco — copa a partir de 2,59 m, então uma barra passa por baixo. Do que a **mata** é feita, espalhada em vez de em fileira. |
+| `carreador` | — | 0 | Não é um modelo que alguém posicione: as estradas pré-assadas. Um OBJ por mundo com todo carreador dele como uma faixa nomeada — terra nua e pista de rodagem — que cada mundo escolhe pelo nome com `<submesh>`. Escrito junto com os mundos, nunca à mão. |
 
-| Machine | Notes |
+| Máquina | Notas |
 |---------|-------|
-| `bin_trailer` | Four wheels, three bins. Behind a tractor it makes 9 m of vehicle, which is what actually decides how wide a road and how open a bend has to be. Parked in the yard, hitch to the tractor's drawbar. |
-| `tractor` | 3.6 × 2.15 × 2.6 m. The ruler every carreador was laid out against — and the same object the workspace drives: `autonomous_tractor_description` copies its bodywork panel for panel in `params.xacro`, down to the blue. The two of them in one world are one machine in two states, the parked one by the shed and the driven one on the carreador. |
-| `harvest_bin` | Field bin left in an alley: on no map, and gone next week. |
-| `water_tank` | The one tall, isolated landmark in a field where every row looks alike. |
+| `bin_trailer` | Quatro rodas, três bins. Atrás de um trator dá 9 m de veículo, que é o que de fato decide quão larga uma estrada e quão aberta uma curva têm de ser. Estacionada no pátio, engatada na barra de tração do trator. |
+| `tractor` | 3,6 × 2,15 × 2,6 m. A régua pela qual todo carreador foi traçado — e o mesmo objeto que o workspace dirige: o `autonomous_tractor_description` copia a carroceria dele painel por painel no `params.xacro`, até o azul. Os dois num mundo são uma máquina em dois estados, a estacionada junto ao galpão e a dirigida no carreador. |
+| `harvest_bin` | Bin de campo deixado num corredor: em mapa nenhum, e sumido na semana que vem. |
+| `water_tank` | O único marco alto e isolado num campo em que toda fileira parece igual. |
 
-Only four of the nine are `<include>`d by a world — the machines and the tank. A model is also a
-**definition**, and that is the other half of what this directory is for: the worlds reference
-`citrus_tree`'s meshes by URI, and reproduce `citrus_round`'s ellipsoid and `forest_tree`'s pair
-of them as inline geometry. The numbers live in one place and the model file is where they are
-explained.
+Só quatro dos nove são `<include>`ídos por um mundo — as máquinas e o tanque. Um modelo também é
+uma **definição**, e essa é a outra metade do motivo deste diretório: os mundos referenciam as
+malhas do `citrus_tree` por URI e reproduzem o elipsoide do `citrus_round` e o par do `forest_tree`
+como geometria inline. Os números vivem num lugar só, e o arquivo do modelo é onde eles são
+explicados.
 
-Why inline at all: measured on 300 identical static objects, **300 models cost 0.8 ms a step, the
-same 300 as links inside one model 0.5 ms, as plain shapes inside a single link 0.3 ms**. Gazebo
-charges per entity and a model is several of them, so where the count runs to hundreds — every
-tree, every loose tree, every rock — the geometry goes inline, into one model per quadrant. Where
-the count is five, `model://` stays: it is the better way to write a world and the difference does
-not show up in a step.
+Por que inline: medido em 300 objetos estáticos idênticos, **300 modelos custam 0,8 ms por passo, os
+mesmos 300 como links dentro de um modelo 0,5 ms, como formas simples dentro de um único link
+0,3 ms**. O Gazebo cobra por entidade e um modelo são várias delas, então onde a contagem chega a
+centenas — toda árvore, toda árvore solta, toda pedra — a geometria vai inline, num modelo por
+quadrante. Onde a contagem é cinco, o `model://` fica: é o jeito melhor de escrever um mundo e a
+diferença não aparece num passo.
 
-### Roads that curve, and rows that are cut to them
+### Estradas que fazem curva, e fileiras cortadas por elas
 
-All three worlds are built the same way, and it is worth knowing before editing one. A carreador
-is written the way it is driven:
+Os mundos são todos construídos do mesmo jeito, e vale saber disso antes de editar um. Um carreador
+é escrito do jeito que é dirigido:
 
 ```python
 Path(0, 0, 0).straight(44).turn(-30, 26).straight(34).turn(-60, 20)
 ```
 
-Positive angles turn left, and the second number is the centreline radius — the one that decides
-whether a rig gets round the bend or has to shunt. The centreline becomes a spine — the two ends
-of each straight, a station every 2.5 m of arc, and one station per sharp vertex carrying both of
-its headings — and each layer of the road is a ribbon of triangles laid along it. A whole road is
-one model and each of its layers one visual, however long it runs.
+Ângulos positivos viram à esquerda, e o segundo número é o raio da linha central — o que decide se
+um conjunto contorna a curva ou tem de manobrar. A linha central vira uma espinha — as duas pontas
+de cada reta, uma estação a cada 2,5 m de arco, e uma estação por vértice agudo levando os dois
+rumos — e cada camada da estrada é uma fita de triângulos ao longo dela. Uma estrada inteira é um
+modelo, e cada camada dela um visual, por mais longa que seja.
 
-The rows are then **not** laid out and drawn. Each row line is walked at 0.5 m and kept only
-where the ground is plantable: inside its own talhão, off every road corridor, out of the mata,
-clear of the yard, and 4.5 m from the neighbouring block. The contiguous stretches that survive
-become rows; a stretch too short for three trees is left bare. That is what makes the field end
-square against a curve, and it means editing a road automatically re-cuts every block beside it.
+As fileiras então **não** são traçadas e desenhadas. Cada linha de fileira é percorrida a cada
+0,5 m e mantida só onde o chão é plantável: dentro do seu talhão, fora de todo corredor de estrada,
+fora da mata, longe do pátio e a 4,5 m do talhão vizinho. Os trechos contínuos que sobram viram
+fileiras; um trecho curto demais para três árvores fica vazio. É isso que faz o campo terminar em
+esquadro contra uma curva, e quer dizer que editar uma estrada recorta automaticamente todo talhão
+ao lado dela.
 
-Each world's header carries a plan of itself, rasterised by the generator at 5 m per character.
-It is the fastest way to see what a change did without opening the simulator.
+O cabeçalho de cada mundo traz um mapa dele, rasterizado pelo gerador a 5 m por caractere. É o
+jeito mais rápido de ver o que uma mudança fez sem abrir o simulador.
 
-Every bend gets its angle painted automatically, from `Path.marks()`: **in the middle of the arc
-itself**, dark figures on a pale board, digits side by side, and **every number laid out north up**
-whatever direction its road runs — consistent orientation is what makes a set of them scannable
-from above. Seven boxes to a digit, because SDF has no text geometry and these worlds carry no
-textures.
+Toda curva recebe o ângulo pintado automaticamente, a partir de `Path.marks()`: **no meio do
+próprio arco**, algarismos escuros numa placa clara, lado a lado, e **todo número disposto com o
+norte para cima**, qualquer que seja a direção da estrada — orientação consistente é o que deixa um
+conjunto deles legível do alto. Sete caixas por algarismo, porque o SDF não tem geometria de texto
+e estes mundos não levam texturas.
 
-**Every board is the same size, always.** It used to shrink to 68% of itself when the search could
-not find a spot clear of a fold in the ground, and that is a worse fault than the one it fixed: on
-a property whose numbers come in two sizes, the small ones look as though they meant something
-different — a lesser bend, a different kind of marking — when all they meant was that the ground
-under them was creased. Size is not information here; the digits are. So the search moves the
-board and never resizes it, and it has more places to move to: nine points along the arc instead
-of three, then a few metres past either end. Across the four worlds it now finds a clean spot for
-all 48 numbers without once falling back.
+**Toda placa tem o mesmo tamanho, sempre.** Ela encolhia para 68% de si quando a busca não achava um
+lugar livre de uma dobra do chão, e isso é um defeito pior que o que corrigia: numa propriedade com
+números de dois tamanhos, os pequenos parecem querer dizer outra coisa — uma curva menor, outro tipo
+de marca — quando só queriam dizer que o chão embaixo deles tinha um vinco. Tamanho não é informação
+aqui; os algarismos são. Então a busca move a placa e nunca a redimensiona, e tem mais lugares para
+onde movê-la: nove pontos ao longo do arco em vez de três, depois alguns metros além de cada ponta.
+Nos quatro mundos ela agora acha um lugar limpo para os 48 números sem recorrer uma vez sequer.
 
-It used to sit 28 m back along the straight that led into the bend, the way a road sign does, and
-that is the wrong model: a sign is a warning and needs the setback, a number on the ground is a
-label. Set back, it has to be matched to its bend by eye, and on a property of mixed angles the
-number before a bend and the number after it are both in view from one spot with nothing to say
-which is which. On the arc there is no question. Of the 48 numbers across the four worlds, 34 sit
-dead centre on their arc; the other 14 are shifted along it, or a few metres past its end, to
-clear a junction or a fold in the ground that the board could not lie flat across.
-`Path.close_to_y()` computes the last straight of each block loop, so changing a radius still
-lands the road back on the carreador it left.
+Ela ficava 28 m antes, na reta que levava à curva, como uma placa de trânsito, e esse é o modelo
+errado: uma placa é um aviso e precisa do recuo; um número no chão é um rótulo. Recuado, ele tem de
+ser associado à curva no olho, e numa propriedade de ângulos misturados o número antes de uma curva
+e o número depois dela ficam ambos à vista de um mesmo ponto sem nada que diga qual é qual. No arco
+não há dúvida. Dos 48 números nos quatro mundos, 34 ficam bem no centro do seu arco; os outros 14
+são deslocados ao longo dele, ou alguns metros além da ponta, para livrar um entroncamento ou uma
+dobra do chão sobre a qual a placa não deitaria plana. `Path.close_to_y()` calcula a última reta de
+cada laço de talhão, então mudar um raio ainda faz a estrada voltar ao carreador de onde saiu.
 
-No road ends anywhere except on another road. The dividing carreadores run edge to edge and
-finish on a perimeter that closes on itself, and `check_network()` enforces that at generation
-time — it refuses to write a world whose roads break any of three rules:
+Nenhuma estrada termina em lugar nenhum a não ser em outra estrada. Os carreadores divisórios vão de
+borda a borda e terminam numa divisa que se fecha em si, e o `check_network()` garante isso na hora
+de gerar — ele se recusa a escrever um mundo cujas estradas quebrem qualquer uma de três regras:
 
-| Rule | What it catches |
-|------|-----------------|
-| **inside the boundary** | A road whose centreline strays more than 6 m outside the perimeter. |
-| **both ends on it** | A road that stops in the middle of a field, which is a road a machine has to reverse out of. |
-| **not alongside** | Two roads within 32 m of each other and pointing the same way for more than 25 m. |
+| Regra | O que pega |
+|-------|------------|
+| **dentro da divisa** | Uma estrada cuja linha central sai mais de 6 m para fora do perímetro. |
+| **as duas pontas nela** | Uma estrada que para no meio de um campo, que é uma estrada de onde uma máquina tem de sair de ré. |
+| **não paralelas** | Duas estradas a menos de 32 m uma da outra apontando para o mesmo lado por mais de 25 m. |
 
-Every one of those was a real fault before it was a check. `citrus_farm_60`'s third carreador
-used to start at the bottom point of the hexagon and set off due east, where the property is
-**35 m wide**: 180 of its 270 m ran outside the boundary and came back in, which on the plan is a
-road and a boundary crossing twice with a lens between them — a figure of eight — and in the world
-is a road through nobody's field. It survived because `close_to_boundary()` only ever looks at
-where a road *ends*, and nothing looked at where it had been. That road now runs from the
-south-east edge to the north-west one and crosses both the others on the way.
+Cada uma delas foi um defeito real antes de ser uma verificação. O terceiro carreador do
+`citrus_farm_60` começava na ponta de baixo do hexágono e seguia para leste, onde a propriedade tem
+**35 m de largura**: 180 dos seus 270 m corriam fora da divisa e voltavam, o que no mapa é uma
+estrada e uma divisa se cruzando duas vezes com uma lente entre elas — um oito — e no mundo é uma
+estrada pelo campo de ninguém. Ela sobreviveu porque o `close_to_boundary()` só olha para onde uma
+estrada *termina*, e nada olhava para onde ela tinha passado. Essa estrada agora vai da borda
+sudeste à noroeste e cruza as outras duas no caminho.
 
-Crossing another carreador is reported rather than enforced. `citrus_farm_90`'s `south` runs edge
-to edge and meets nothing but the perimeter, which is thinner than the design wants but is not
-wrong the way the three above are wrong, so generating it prints a note and carries on.
+Cruzar outro carreador é reportado, e não imposto. O `south` do `citrus_farm_90` vai de borda a
+borda e não encontra nada além do perímetro, o que é mais ralo do que o projeto quer, mas não é
+errado como as três acima são, então gerá-lo imprime uma nota e segue.
 
-### Where a 90 belongs, and why a bend needs room
+### Onde uma de 90 cabe, e por que uma curva precisa de espaço
 
-Two findings, both from looking at `citrus_farm` after it was first built, and both now
-rules rather than opinions.
+Duas descobertas, ambas de olhar o `citrus_farm` depois de construído pela primeira vez, e ambas
+agora regras, e não opiniões.
 
-**A bend needs straight either side of it.** A turn of angle θ at radius *r* eats `r·tan(θ/2)`
-off the straight at each end: 6.4 m for a 30 at r=24, 13.9 m for a 60, **24 m for a 90**. The
-first cut of that world put a 60 and a 90 sixty metres apart on paper, which is
-60 − 13.9 − 24 = **22 m** of real road between the two arcs — two road widths. They ran into each
-other and the pair read as one long sweep, so the 90 looked like a road that had wandered rather
-than a 90. `check_network(bend_spacing=45)` is that rule now, and `citrus_farm` leaves 50 m
-between every pair of bends. The single-angle worlds deliberately do not take the rule: three 30s
-back to back is how a road of 30s turns a corner there.
+**Uma curva precisa de reta dos dois lados.** Uma curva de ângulo θ e raio *r* come `r·tan(θ/2)` da
+reta em cada ponta: 6,4 m para uma de 30 com r=24, 13,9 m para uma de 60, **24 m para uma de 90**. O
+primeiro corte daquele mundo pôs uma de 60 e uma de 90 a sessenta metros uma da outra no papel, o
+que dá 60 − 13,9 − 24 = **22 m** de estrada real entre os dois arcos — duas larguras de estrada. Elas
+se emendavam e o par parecia uma curva longa só, então a de 90 parecia uma estrada que se desviou,
+e não uma de 90. `check_network(bend_spacing=45)` é essa regra agora, e o `citrus_farm` deixa 50 m
+entre cada par de curvas. Os mundos de ângulo único deliberadamente não seguem a regra: três de 30
+seguidas é como uma estrada de 30 faz uma esquina ali.
 
-**A 90 belongs where a road changes what it is doing.** A 30 or a 60 nudges a road and it carries
-on across the property; a 90 turns it onto the other axis. So a 90 reads right where a carreador
-stops running one way and starts running another, and reads wrong dropped into the middle of a
-crossing run. Radius is not the lever it looks like: the floor is **22 m** of centreline, set by a
-tractor and a loaded bin_trailer needing 18.5 m on the inside of the bend, so a 90 cannot be made
-much sharper than it is. Spacing and placement are the levers.
+**Uma de 90 cabe onde a estrada muda o que está fazendo.** Uma de 30 ou de 60 desvia uma estrada e
+ela segue atravessando a propriedade; uma de 90 a põe no outro eixo. Então uma de 90 parece certa
+onde um carreador para de correr num sentido e começa a correr em outro, e parece errada largada no
+meio de uma travessia. O raio não é a alavanca que parece: o mínimo é **22 m** de linha central,
+dado por um trator com uma bin_trailer carregada precisando de 18,5 m no lado de dentro da curva,
+então uma de 90 não pode ser muito mais fechada do que é. Espaçamento e posição são as alavancas.
 
-**Two roads crossing are two surfaces at the same height, and the stacking order is by layer,
-not by road.** Every carreador used to be drawn at z = 0.013, so a crossing put two flat faces
-over the same ground at the same height, and coplanar faces are what a renderer cannot choose
-between: the junction flickers as the camera moves, which looks like a fault in the junction and
-is a fault in the z. Staggering the roads fixed the flicker and introduced a worse fault, which
-took a camera to find. Stacking each road as a unit — earth, surface, markings, next road a
-millimetre higher — puts one carreador's **running surface over another carreador's markings**.
-Seven metres of surface crossing at 30° covers **fourteen metres** of what it crosses, so the
-marking down the middle of the main road simply stopped at every junction. The camera-driven
-tractor followed what was left, which belonged to the joining road, and drove off down the 30°
-road into the talhão — twice, before the world was suspected rather than the follower.
+**Duas estradas se cruzando são duas superfícies na mesma altura, e a ordem de empilhamento é por
+camada, não por estrada.** Todo carreador era desenhado em z = 0,013, então um cruzamento punha duas
+faces planas sobre o mesmo chão na mesma altura, e faces coplanares são o que um renderizador não
+consegue escolher: o entroncamento pisca conforme a câmera se move, o que parece um defeito no
+entroncamento e é um defeito no z. Escalonar as estradas resolveu a piscada e trouxe um defeito
+pior, que precisou de uma câmera para ser achado. Empilhar cada estrada como uma unidade — terra,
+pista, marcas, a próxima estrada um milímetro acima — põe a **pista de um carreador sobre as marcas
+de outro**. Sete metros de pista cruzando a 30° cobrem **catorze metros** do que cruzam, então a marca
+no meio da estrada principal simplesmente parava em todo entroncamento. O trator guiado por câmera
+seguia o que sobrava, que era da estrada que chegava, e saía pela estrada de 30° para dentro do
+talhão — duas vezes, antes de se suspeitar do mundo, e não do seguidor.
 
-So the stacking runs by **layer and not by road**. `ROAD_LAYERS` is two bands — earth 10 mm and
-running surface 14, with the painted numbers at 18 — and a road's place is a half-millimetre step
-**inside** its band. Every surface is then above every earth strip whoever owns either, so a
-crossing shows both roads graded rather than one road's shoulder laid across the other's track.
-The generator asserts the bands still clear the stagger, which with seven roads is 3 mm of stagger
-against 4 mm of band and would not survive nine.
+Então o empilhamento é **por camada, e não por estrada**. O `ROAD_LAYERS` são duas faixas — terra a
+10 mm e pista a 14, com os números pintados a 18 — e o lugar de uma estrada é um degrau de meio
+milímetro **dentro** da sua faixa. Toda pista fica então acima de toda faixa de terra, seja de quem
+for, então um cruzamento mostra as duas estradas patroladas, e não o acostamento de uma estendido
+sobre a pista da outra. O gerador confere que as faixas ainda comportam o escalonamento, o que com
+sete estradas são 3 mm de escalonamento contra 4 mm de faixa, e não sobreviveria a nove.
 
-**A sharp corner is a mitre, not a patch.** Two road strips meeting at a vertex leave the outer
-quadrant uncovered — 6 m of bite out of a 12 m road at 90° — and that used to be covered by laying
-a square of the road's own width over it, square to the road rather than to the bisector (on the
-bisector it fills the notch too, and sticks out past both edges by `width/√2`: **8.5 m of road
-pointing off into the grass like an arrowhead**). The patch is gone. A vertex is now a station
-whose two headings differ, and the edge of the ribbon steps out along the **mitre** — the point
-where the two offset lines cross, which is the normal stretched by `1/cos(half the turn)`, 1.41 at
-a right angle. That is the same square corner the patch was drawing, from the same two lines of
-arithmetic as every other station, with nothing to lay over anything and no separate piece to cut
-around the folds.
+**Um canto agudo é uma meia-esquadria, não um remendo.** Duas faixas de estrada se encontrando num
+vértice deixam o quadrante de fora descoberto — 6 m de mordida numa estrada de 12 m a 90° — e isso
+era coberto com um quadrado da largura da estrada, em esquadro com a estrada, e não com a bissetriz
+(na bissetriz ele preenche o entalhe também, e passa das duas bordas por `largura/√2`: **8,5 m de
+estrada apontando para o mato como uma ponta de flecha**). O remendo saiu. Um vértice agora é uma
+estação cujos dois rumos diferem, e a borda da fita sai ao longo da **meia-esquadria** — o ponto
+onde as duas linhas deslocadas se cruzam, que é a normal esticada por `1/cos(metade do giro)`, 1,41
+num ângulo reto. É o mesmo canto em esquadro que o remendo desenhava, com as mesmas duas linhas de
+aritmética de toda outra estação, sem nada para sobrepor e sem peça separada para recortar em volta
+das dobras.
 
-**The yard is chosen before the planting.** The clearing that keeps rows out of it is derived from
-where it lands, so the two cannot come apart. They did once: the yard searched for clear ground
-after the planting was already laid, moved, and left its clearing behind — a shed with citrus **4 m
-from its wall**. Now it is 31 m, and `check_props()` keeps every piece of the yard, the machinery
-and the bins **15 m** clear of any carreador, because the roads are the one part of these worlds
-the vehicle is entitled to.
+**O pátio é escolhido antes do plantio.** A clareira que mantém as fileiras fora dele é derivada de
+onde ele cai, então os dois não podem se separar. Já se separaram: o pátio buscava chão livre depois
+de o plantio estar feito, se movia, e deixava a clareira para trás — um galpão com citros a **4 m da
+parede**. Agora são 31 m, e o `check_props()` mantém toda peça do pátio, o maquinário e os bins a
+**15 m** de qualquer carreador, porque as estradas são a única parte destes mundos a que o veículo
+tem direito.
 
-**Right angles outside, the other angles inside.** A real property is squared off at its edge,
-because that is where a surveyor drew it, and the roads that cut its blocks up run at whatever
-angle gets them across. `citrus_farm` is laid out that way: a **360 × 420 m rectangle** whose
-four corners turn 90 — two cut square, two bladed round at 24 m — two frame carreadores crossing it
-edge to edge and meeting each other square in the middle, and two **diagonals** cutting the blocks
-those leave, carrying the 30s and the 60s. A crossroads is not something you turn at, so the frame
-roads carry no painted number at all; every bend that does turn a road carries one.
+**Ângulos retos por fora, os outros ângulos por dentro.** Uma propriedade real é esquadrejada na
+borda, porque é ali que um agrimensor a desenhou, e as estradas que cortam os talhões correm no
+ângulo que for preciso para atravessá-los. O `citrus_farm` é traçado assim: um **retângulo de
+360 × 420 m** cujos quatro cantos viram 90 — dois em esquadro, dois arredondados a 24 m —, dois
+carreadores de moldura cruzando-o de borda a borda e se encontrando em esquadro no meio, e duas
+**diagonais** cortando os talhões que eles deixam, com as de 30 e as de 60. Um cruzamento não é algo
+em que se vira, então as estradas de moldura não levam número pintado nenhum; toda curva que vira
+uma estrada leva um.
 
-**A farm turns both ways.** A graded road is bladed round where there is room and simply cut where
-two blocks meet square, and the aerial photographs are full of both — mostly the second. So
-`Path.turn(degrees, radius)` takes **radius 0**: no arc, a vertex. It costs no straight either,
-where an arc eats `r·tan(θ/2)` at each end, which is how a sharp 90 fits where a rounded one would
-not. Two strips of road meeting at a vertex leave a triangular notch on the outside of the turn,
-which the mitre at that station fills exactly, and which is the piece of ground a grader squares
-off anyway. `check_network(pairs=True)` then insists that **every angle appears both ways**: the
-world carries a sharp 30, 60 and 90 and a rounded 30, 60 and 90, and will not build without
-all six.
+**Uma fazenda vira dos dois jeitos.** Uma estrada patrolada é arredondada onde há espaço e
+simplesmente cortada onde dois talhões se encontram em esquadro, e as fotografias aéreas estão
+cheias das duas — principalmente da segunda. Então `Path.turn(graus, raio)` aceita **raio 0**: sem
+arco, um vértice. Não custa reta também, onde um arco come `r·tan(θ/2)` em cada ponta, e é assim que
+uma de 90 aguda cabe onde uma arredondada não caberia. Duas faixas de estrada se encontrando num
+vértice deixam um entalhe triangular no lado de fora da curva, que a meia-esquadria daquela estação
+preenche exatamente, e que é o pedaço de chão que uma patrola esquadreja de qualquer jeito. O
+`check_network(pairs=True)` então exige que **todo ângulo apareça dos dois jeitos**: o mundo tem uma
+de 30, uma de 60 e uma de 90 agudas e uma de 30, uma de 60 e uma de 90 arredondadas, e não compila
+sem as seis.
 
-**The carreadores belong to the vehicle.** Nothing a machine would have to drive round may stand
-within **15 m** of a road centreline: the 6 m of bare earth the road wears, plus room to pass
-whatever is parked without putting a wheel in the crop. `check_props()` enforces it, and the yard
-— shed, tank, bins, the parked tractor and its trailer — is placed as one block whose anchor is
-searched for until every piece of it clears. It caught the world it was written for: the water
-tank had been standing **1 m** off a centreline and the field bins 4.8 m, which is a tank and two
-bins parked in a road a driverless tractor is meant to have to itself.
+**Os carreadores pertencem ao veículo.** Nada que uma máquina tivesse de contornar pode ficar a menos
+de **15 m** da linha central de uma estrada: os 6 m de terra nua que a estrada tem, mais espaço para
+passar pelo que estiver estacionado sem pôr uma roda na cultura. O `check_props()` garante isso, e o
+pátio — galpão, tanque, bins, o trator estacionado e a carreta dele — é posto como um bloco cuja
+âncora é buscada até toda peça livrar. Isso pegou o mundo para o qual foi escrito: o tanque d'água
+estava a **1 m** de uma linha central e os bins de campo a 4,8 m, o que é um tanque e dois bins
+estacionados numa estrada que um trator sem motorista deveria ter só para si.
 
-**And the vehicle starts on it, pointing along it.** `sim.launch.py` spawns at 0 0 with yaw 0 and
-no per-world pose, so the carreador that carries the origin has to run along **+x**: a machine
-that starts 20° across its own road spends its first move correcting. `check_network` measures the
-heading of the road under the origin and refuses anything more than 3° off.
+**E o veículo começa nela, apontado ao longo dela.** O `sim.launch.py` cria em 0 0 com yaw 0 e sem
+pose por mundo, então o carreador que passa pela origem tem de correr ao longo de **+x**: uma
+máquina que começa 20° atravessada na própria estrada passa o primeiro movimento se corrigindo. O
+`check_network` mede o rumo da estrada sob a origem e recusa qualquer coisa a mais de 3°.
 
-**The number goes on the arc, and off the junction.** Twenty-two metres of clearance to any other
-road: the board's own 5 m, plus the 11 m of bare earth the other road is wearing, plus enough to
-see which road the number belongs to. The search takes the middle of the arc, then either side of
-it along the arc, and only then up to 12 m past its ends — never far enough to look like the
-number of the straight. Across the four worlds the tightest number now clears **20.2 m**, against
-**5.1 m** before, which was a 90 lying across a crossroads.
+**O número vai no arco, e fora do entroncamento.** Vinte e dois metros de folga a qualquer outra
+estrada: os 5 m da própria placa, mais os 11 m de terra nua que a outra estrada tem, mais o bastante
+para ver a que estrada o número pertence. A busca pega o meio do arco, depois os dois lados dele ao
+longo do arco, e só então até 12 m além das pontas — nunca longe o bastante para parecer o número da
+reta. Nos quatro mundos o número mais apertado agora livra **20,2 m**, contra **5,1 m** antes, que
+era uma de 90 deitada sobre um cruzamento.
 
-### One property, four road networks
+### Uma propriedade, quatro redes de estradas
 
-The four come out of one builder, `_build_farm()`, which takes the block roads as a spec and
-nothing else. The terrain, the talhões, the mata, the yard and the way rows are cut are shared
-code, so the only difference between the four worlds is the geometry of their carreadores —
-which is what makes them worth comparing.
+Os quatro saem de um construtor, `_build_farm()`, que recebe as estradas dos talhões como uma
+especificação e nada mais. O terreno, os talhões, a mata, o pátio e o jeito de cortar as fileiras
+são código comum, então a única diferença entre os quatro mundos é a geometria dos seus carreadores
+— que é o que os torna dignos de comparação.
 
-Three of them take their angle from `through_network()`, which implies it on every bend; the
-crossroads world takes `mixed_network()`, which is handed each turn in degrees,
-because a mixture is the whole point of them.
+Três deles tiram o ângulo de `through_network()`, que o aplica a toda curva; o mundo do cruzamento
+usa `mixed_network()`, que recebe cada curva em graus, porque uma mistura é todo o propósito dele.
 
-All four are laid out as **through routes**: each road runs from one edge of the
-property to another and they cross each other on the way, so the blocks are what the crossings
-leave over. An earlier cut ringed each quarter of the farm with a loop, which produced a rectangle
-inside a rectangle inside a rectangle where every route went round something and none of them went
-anywhere.
+Os quatro são traçados como **rotas de passagem**: cada estrada vai de uma borda da propriedade a
+outra e elas se cruzam no caminho, então os talhões são o que os cruzamentos deixam. Um corte
+anterior circundava cada quarto da fazenda com um laço, o que produzia um retângulo dentro de um
+retângulo dentro de um retângulo, em que toda rota contornava algo e nenhuma ia a lugar nenhum.
 
-How many roads a property will hold turns out to be a function of the angle. At 90° four fit; at
-60°, three; at 30°, two, because a 30 barely changes where a road is pointing, so any third road
-ends up running alongside one of the others rather than crossing it.
+Quantas estradas uma propriedade comporta acaba sendo função do ângulo. A 90° cabem quatro; a 60°,
+três; a 30°, duas, porque uma de 30 mal muda para onde a estrada aponta, então qualquer terceira
+estrada acaba correndo ao lado de uma das outras em vez de cruzá-la.
 
-Road layouts are declarative — `dogleg([(x, y), ...], radius)` takes the corners and works out the
-straights so each arc is tangent to both — so changing a network is moving a corner, not redoing
-trigonometry.
+Os traçados são declarativos — `dogleg([(x, y), ...], raio)` recebe os cantos e calcula as retas
+para que cada arco seja tangente às duas —, então mudar uma rede é mover um canto, e não refazer
+trigonometria.
 
-Two rules keep the networks readable, the first of them enforced by `check_network()` above:
+Duas regras mantêm as redes legíveis, a primeira imposta pelo `check_network()` acima:
 
-- **No two carreadores run alongside each other.** Crossing is a junction and junctions are the
-  point; a loop passing 5 m outside the perimeter is one wide mess with a strip of hedge stranded
-  down the middle. Every loop is sized so nothing parallel comes within **32 m**.
-- **A bend's angle is painted in the bend.** The arc is the widest, flattest piece of road there
-  is — 11 m of bare earth through the curve, against a 7.8 by 6.0 m board — and it is the one
-  place a label cannot be read as belonging to the next bend along.
+- **Dois carreadores não correm lado a lado.** Cruzar é um entroncamento, e entroncamentos são o
+  propósito; um laço passando 5 m fora do perímetro é uma bagunça larga com uma tira de cerca viva
+  encalhada no meio. Todo laço é dimensionado para que nada paralelo chegue a menos de **32 m**.
+- **O ângulo de uma curva é pintado na curva.** O arco é o trecho mais largo e plano de estrada que
+  existe — 11 m de terra nua pela curva, contra uma placa de 7,8 por 6,0 m — e é o único lugar onde
+  um rótulo não pode ser lido como pertencendo à próxima curva.
 
-Two constraints do the design work in the single-angle worlds. A loop that leaves the east-west
-carreador heading north and rejoins it heading south has turned **180°**, so the angle fixes how
-many bends it has: two 90s, three 60s, six 30s, each loop being half a regular polygon. A boundary
-that closes on itself has turned **360°**, so the perimeter is a polygon of `360/angle` sides.
-Nothing is planted outside it.
+Duas restrições fazem o trabalho de projeto nos mundos de ângulo único. Um laço que sai do carreador
+leste-oeste rumo norte e volta a ele rumo sul girou **180°**, então o ângulo fixa quantas curvas ele
+tem: duas de 90, três de 60, seis de 30, sendo cada laço meio polígono regular. Uma divisa que se
+fecha em si girou **360°**, então o perímetro é um polígono de `360/ângulo` lados. Nada é plantado
+fora dele.
 
-### Sixty degrees can sit in the middle of a block; thirty cannot
+### Sessenta graus cabem no meio de um talhão; trinta não
 
-`citrus_farm` adds four oblique roads to its crossroads, and they are the same idea
-run at two angles: leave a carreador at the angle, turn the angle in open ground, arrive on
-another carreador at the angle. Three junctions of three different kinds — a T off the boundary, a
-bend in the open, a T onto the main — all taking the same turn of the wheel.
+O `citrus_farm` acrescenta quatro estradas oblíquas ao cruzamento, e elas são a mesma ideia em dois
+ângulos: sair de um carreador no ângulo, virar o ângulo em campo aberto, chegar a outro carreador no
+ângulo. Três entroncamentos de três tipos diferentes — um T saindo da divisa, uma curva no aberto, um
+T chegando ao principal — todos com a mesma volta de volante.
 
-**At 60° the arithmetic closes.** Sixty degrees off a horizontal road puts the first leg at −60;
-turning 60 puts the second at −120; and both −60 and −120 are at 60° to the horizontal, so the
-first leg can finish on a horizontal road and the second can too. Nothing is over-determined, and
-the bend is free to sit wherever it is wanted — here, **3 m from the centre of its 266 m block**,
-which is the other half of the point: a machine entering from the north meets the curve with the
-whole block around it rather than against a fence, and the rows on both sides are cut to it.
+**A 60° a aritmética fecha.** Sessenta graus a partir de uma estrada horizontal põem o primeiro
+trecho a −60; virar 60 põe o segundo a −120; e tanto −60 quanto −120 estão a 60° da horizontal,
+então o primeiro trecho pode terminar numa estrada horizontal e o segundo também. Nada fica
+sobredeterminado, e a curva fica livre para ficar onde se quiser — aqui, **a 3 m do centro do seu
+talhão de 266 m**, que é a outra metade do propósito: uma máquina entrando pelo norte encontra a
+curva com o talhão inteiro em volta, e não contra uma cerca, e as fileiras dos dois lados são
+cortadas por ela.
 
-**At 30° it does not, and no width of block will make it.** A leg at 30° to the horizontal meets a
-*vertical* road at 60°; a leg at 60° meets a *horizontal* road at 60°. The two legs of a 30° bend
-are −30 and −60, so one of them wants to finish on a horizontal carreador and the other on a
-vertical one — one asks for a tall block, the other for a wide one, and no rectangle is both. That
-is why widening the lower talhões does not fix it: the constraint is on the *ratio* the two legs
-demand at once, and a rectangle has one ratio.
+**A 30° não fecha, e nenhuma largura de talhão faz fechar.** Um trecho a 30° da horizontal encontra
+uma estrada *vertical* a 60°; um trecho a 60° encontra uma estrada *horizontal* a 60°. Os dois
+trechos de uma curva de 30° são −30 e −60, então um quer terminar num carreador horizontal e o outro
+num vertical — um pede um talhão alto, o outro um largo, e nenhum retângulo é as duas coisas. É por
+isso que alargar os talhões de baixo não resolve: a restrição é na *proporção* que os dois trechos
+exigem ao mesmo tempo, e um retângulo tem uma proporção só.
 
-So the lower roads keep the angle and give up the position: **30° off the main, 30° onto the side
-boundary, bend 72 m from the middle** of the block — still inside its central third. The other
-branch of the trade is a bend dead centre with one junction at 60°, which gives away the angle the
-world exists to test. Either is one line of spec; the choice is which of the two properties
-matters more.
+Então as estradas de baixo mantêm o ângulo e abrem mão da posição: **30° saindo do principal, 30°
+chegando à divisa lateral, curva a 72 m do meio** do talhão — ainda dentro do terço central dele. O
+outro lado da troca é uma curva bem no centro com um entroncamento a 60°, o que abre mão do ângulo
+que o mundo existe para testar. Qualquer um dos dois é uma linha de especificação; a escolha é qual
+das duas propriedades importa mais.
 
-### Ground that is not flat
+### Chão que não é plano
 
-These worlds carry relief, and how is worth knowing, because the obvious ways do not work.
-**Gazebo Harmonic's DART collides with neither a heightmap nor a trimesh in this build** — both
-were tried and measured, and a sphere dropped on either falls straight through (to z = -1686 and
-z = -1093 respectively, the mesh loading without an error first). Boxes do collide, so the ground
-is built from tilted slabs, and since a box top is a plane the surface is piecewise planar. Each
-slab may tilt about **one axis only**: tilt about two and the tops project to parallelograms that
-no longer meet at the corners, which at these sizes is 10–20 cm of gap. Hence relief along X and
-level along Y. The eleven slabs meet within **1.3 mm**.
+Estes mundos têm relevo, e como vale saber, porque os jeitos óbvios não funcionam. **O DART do
+Gazebo Harmonic não colide nem com heightmap nem com trimesh nesta build** — os dois foram tentados e
+medidos, e uma esfera largada em qualquer um cai direto (até z = −1686 e z = −1093,
+respectivamente, a malha carregando sem erro antes). Caixas colidem, então o chão é feito de placas
+inclinadas, e como o topo de uma caixa é um plano, a superfície é planar por partes. Cada placa só
+pode inclinar em **um eixo**: incline em dois e os topos se projetam em paralelogramos que não se
+encontram mais nos cantos, o que nestes tamanhos são 10–20 cm de fresta. Daí relevo ao longo de X e
+nível ao longo de Y. As onze placas se encontram a menos de **1,3 mm**.
 
-**The ground reaches past the fence, and `citrus_farm` reaches furthest.** `extent` is how far the
-terrain goes from the origin, and the profile's end grades are carried on rather than a new
-landform invented. The default 260 m suits the 410 m properties; `citrus_farm` asks for **460**
-against a property that reaches 332, because an aerial view showed why 340 was not enough — ground
-that stops 8 m past the last tree is a cliff at the edge of the world, and the whole farm appeared
-to float on nothing. It costs no entities: the slabs are the same eleven boxes, longer, and the
-world still runs 20 s of simulation in 22.7 s.
+**O chão vai além da cerca, e o `citrus_farm` vai mais longe.** `extent` é até onde o terreno vai a
+partir da origem, e as rampas das pontas do perfil são continuadas em vez de se inventar um novo
+relevo. Os 260 m padrão servem às propriedades de 410 m; o `citrus_farm` pede **460** para uma
+propriedade que chega a 332, porque uma vista aérea mostrou por que 340 não bastava — chão que acaba
+8 m depois da última árvore é um penhasco na borda do mundo, e a fazenda inteira parecia flutuar
+sobre o nada. Não custa entidades: as placas são as mesmas onze caixas, mais compridas, e o mundo
+ainda roda 20 s de simulação em 22,7 s.
 
-Everything is placed on that surface: rows are broken at the folds so each hedge lies in one plane,
-and anything resting on the ground takes the local slope with it.
+Tudo é posto sobre essa superfície: as fileiras são quebradas nas dobras para que cada cerca viva
+fique num plano, e tudo o que se apoia no chão acompanha a inclinação local.
 
-Roads need more care than that, and getting it wrong is easy. The folds run north to south, so a
-carreador that runs north to south has a fold **down the middle of it** rather than across it, and
-one drawn as a flat plank ends up with one edge buried and the other in the air — 55 cm at the
-edges of 11 m of bare earth where the grade goes from −7% to +3%, which reads as a road cut in
-half lengthwise.
+Estradas pedem mais cuidado que isso, e errar é fácil. As dobras correm de norte a sul, então um
+carreador que corre de norte a sul tem uma dobra **no meio dele**, e não atravessada, e um desenhado
+como uma tábua plana acaba com uma borda enterrada e a outra no ar — 55 cm nas bordas de 11 m de
+terra nua onde a rampa vai de −7% a +3%, o que parece uma estrada partida ao meio no comprimento.
 
-Boxes were the first answer and they are the wrong shape for it. A box is one plane, so the road
-had to be cut around every crease: along its length where a fold crossed its centreline, across
-its width where one ran beneath it, and then chopped every 3 m near the fold where the road met it
-at an angle and the crease ran diagonally across the rectangle, which neither cut alone fixes.
-That left **6 to 19 cm** of worst corner, against 55 to 79 before it — an approximation, with a
-granularity to tune, and expensive: see the cost section below, where it turned out to be most of
-what `citrus_farm` was paying.
+Caixas foram a primeira resposta e são a forma errada para isso. Uma caixa é um plano, então a
+estrada tinha de ser cortada em volta de cada vinco: no comprimento, onde uma dobra cruzava a linha
+central; na largura, onde uma passava por baixo; e depois picada a cada 3 m perto da dobra, onde a
+estrada a encontrava num ângulo e o vinco atravessava o retângulo na diagonal, o que nenhum dos dois
+cortes sozinho resolve. Isso deixava **6 a 19 cm** de pior canto, contra 55 a 79 antes — uma
+aproximação, com uma granularidade a ajustar, e cara: veja a seção de custo abaixo, onde ela se
+revelou a maior parte do que o `citrus_farm` estava pagando.
 
-**A road is now one mesh, and the fold is an edge of it.** A mesh is under no obligation to be
-planar, so the crease does not have to be avoided — it can be part of the geometry, which is what
-it is on the ground. `ribbon()` walks the road as a strip of quads, clips each one by every fold
-that passes under it (`_one_plane_each()`, a convex polygon cut by a vertical line), and
-triangulates the pieces. Every triangle that comes out therefore lies in exactly one plane of the
-terrain, and every vertex sits on the ground at its own x. Measured over all four worlds by
-sampling the interior of all 3046 triangles against the terrain: **worst deviation 0.000 mm**,
-where the boxes left 19 cm. Exact, with nothing to tune, and one visual instead of several
-hundred.
+**Uma estrada agora é uma malha, e a dobra é uma aresta dela.** Uma malha não tem obrigação de ser
+planar, então o vinco não precisa ser evitado — pode ser parte da geometria, que é o que ele é no
+chão. O `ribbon()` percorre a estrada como uma tira de quadriláteros, recorta cada um por toda dobra
+que passa embaixo (`_one_plane_each()`, um polígono convexo cortado por uma linha vertical) e
+triangula os pedaços. Todo triângulo que sai fica, portanto, em exatamente um plano do terreno, e
+todo vértice fica no chão no seu próprio x. Medido nos quatro mundos amostrando o interior de todos
+os 3046 triângulos contra o terreno: **pior desvio 0,000 mm**, onde as caixas deixavam 19 cm. Exato,
+sem nada a ajustar, e um visual em vez de várias centenas.
 
-**A carreador is two strips and nothing else.** Twelve metres of bare earth, and 7 m of graded
-running surface down the middle of it, a few counts lighter. No markings: two were tried and both
-came out — a painted white line, because nobody paints a farm track, and then a pair of wheel
-ruts, because two hard-edged stripes 2.1 m apart read as paint as well and matched the bitola of
-no machine on the property. The lesson from the line survives them both and is in the z-order note
-above: a mark is only a reference if the road that joins yours does not bury it.
+**Um carreador são duas faixas e nada mais.** Doze metros de terra nua, e 7 m de pista patrolada no
+meio, algumas contagens mais clara. Sem marcas: duas foram tentadas e as duas saíram — uma linha
+branca pintada, porque ninguém pinta uma estrada de fazenda, e depois um par de sulcos de roda,
+porque duas faixas de borda dura a 2,1 m uma da outra também pareciam tinta e não batiam com a
+bitola de máquina nenhuma da propriedade. A lição da linha sobrevive às duas e está na nota sobre a
+ordem em z acima: uma marca só é referência se a estrada que chega à sua não a enterrar.
 
-The road the camera steers by is now the surface itself, whose two edges are symmetric about the
-centreline by construction. That is not a consolation prize — it is a feature the road really has,
-and it does not have to be maintained in two places.
+A estrada pela qual a câmera esterça agora é a própria pista, cujas duas bordas são simétricas em
+relação à linha central por construção. Isso não é prêmio de consolação — é uma característica que
+a estrada realmente tem, e não precisa ser mantida em dois lugares.
 
-### Four things sized for a big world
+### Coisas dimensionadas para um mundo grande
 
-410 m of property, four to five thousand trees and sixteen metres of relief are paid for in five
-places, all worth understanding before copying them:
+410 m de propriedade, quatro a cinco mil árvores e dezesseis metros de relevo são pagos em cinco
+lugares, e vale entender todos antes de copiá-los:
 
-- they step at **3 ms**, where `empty.sdf` steps at 1;
-- their citrus is **one crown per tree with no separate trunk** — a grown tree is skirted to the
-  ground anyway — and the rows are baked eight crowns to a mesh;
-- their **hedgerows are collision boxes and crowns inside one link per block**, not one model a row;
-- their mata and loose ground furniture are **inlined into one model per quadrant**, not 300
-  includes;
-- their **carreadores are baked meshes**, a strip per layer per road, not a tiled floor of boxes.
+- eles avançam a **3 ms** por passo, onde o `empty.sdf` avança a 1;
+- o citros deles é **uma copa por árvore sem tronco separado** — uma árvore crescida tem a saia até
+  o chão de qualquer jeito — e as fileiras são pré-assadas oito copas por malha;
+- as **cercas vivas são caixas de colisão e copas dentro de um link por talhão**, e não um modelo
+  por fileira;
+- a mata e os objetos soltos do chão são **inline num modelo por quadrante**, e não 300 includes;
+- os **carreadores são malhas pré-assadas**, uma faixa por camada por estrada, e não um piso de
+  caixas em ladrilhos.
 
-The last two are measured, on 300 identical static objects: **300 models cost 0.8 ms a step, the
-same 300 as links in one model 0.5 ms, as plain shapes in a single link 0.3 ms.** Gazebo charges
-per entity and a model is several of them. Together they are why five thousand trees and full
-terrain relief arrive as thirty-odd entities and keep up with the clock:
+Os dois últimos são medidos, em 300 objetos estáticos idênticos: **300 modelos custam 0,8 ms por
+passo, os mesmos 300 como links num modelo 0,5 ms, como formas simples num único link 0,3 ms.** O
+Gazebo cobra por entidade, e um modelo são várias delas. Juntos, eles são o motivo de cinco mil
+árvores e relevo completo chegarem como trinta e poucas entidades e acompanharem o relógio:
 
-| World | visuals | collisions | models + includes | 20 s of sim, headless | RTF |
+| Mundo | visuais | colisões | modelos + includes | 20 s de simulação, headless | RTF |
 |---|---|---|---|---|---|
-| `citrus_farm.sdf` | 3778 | 14 | 32 + 8 | 22.7 s | 0.88 |
-| `citrus_farm_90.sdf` | 2138 | 12 | 32 + 8 | 22.5 s | 0.89 |
-| `citrus_farm_60.sdf` | 1915 | 12 | 32 + 8 | 22.4 s | 0.89 |
-| `citrus_farm_30.sdf` | 1971 | 12 | 36 + 8 | 22.4 s | 0.89 |
-| `empty.sdf` | 1 | 1 | 1 | 22.1 s | 0.90 |
+| `citrus_farm.sdf` | 3778 | 14 | 32 + 8 | 22,7 s | 0,88 |
+| `citrus_farm_90.sdf` | 2138 | 12 | 32 + 8 | 22,5 s | 0,89 |
+| `citrus_farm_60.sdf` | 1915 | 12 | 32 + 8 | 22,4 s | 0,89 |
+| `citrus_farm_30.sdf` | 1971 | 12 | 36 + 8 | 22,4 s | 0,89 |
+| `empty.sdf` | 1 | 1 | 1 | 22,1 s | 0,90 |
 
-Every world is now within 0.7 s of the empty one, which is the point of the two paragraphs below:
-the roads used to be most of the difference.
+Todo mundo agora fica a 0,7 s do vazio, que é o ponto dos dois parágrafos abaixo: as estradas eram
+a maior parte da diferença.
 
-**A static visual is not free, even with nothing rendering it.** This was assumed the other way
-round for a while — the server has no camera, so why should it care — and `citrus_farm`
-disproved it. The controlled version: take that world, keep all 39 models exactly where they are,
-and collapse the eight oblique-road models from 1139 box tiles to one box each. Nothing else
-changes, and in the same session it goes from **33.0 s to 24.6 s** of wall clock for 20 s of
-simulation. Against the same world without those four roads in the clean
-session, 3904 visuals cost 23.6 s and 5243 cost 28.8 s.
+**Um visual estático não é de graça, mesmo sem nada renderizando.** Isso foi suposto ao contrário
+por um tempo — o servidor não tem câmera, então por que se importaria — e o `citrus_farm` provou o
+contrário. A versão controlada: pegue aquele mundo, mantenha os 39 modelos exatamente onde estão e
+reduza os oito modelos de estrada oblíqua de 1139 ladrilhos de caixa a uma caixa cada. Nada mais
+muda, e na mesma sessão ele vai de **33,0 s para 24,6 s** de relógio por 20 s de simulação. Contra
+o mesmo mundo sem aquelas quatro estradas na sessão limpa, 3904 visuais custaram 23,6 s e 5243
+custaram 28,8 s.
 
-Solve that against the empty world, which runs 20 s of simulation in 22.1 s with one visual, and
-the shape of it is simple: about **1.1 ms a step of fixed cost and 0.6 µs a step per static
-visual**. At a 3 ms step, that put 3.2 ms of visual budget into the crossroads world against a
-3 ms step — the whole of the difference between RTF 0.85 and RTF 0.69, from roads a robot cannot
-even collide with.
+Resolva isso contra o mundo vazio, que roda 20 s de simulação em 22,1 s com um visual, e a forma é
+simples: cerca de **1,1 ms por passo de custo fixo e 0,6 µs por passo por visual estático**. Num
+passo de 3 ms, isso punha 3,2 ms de orçamento de visuais no mundo do cruzamento contra um passo de
+3 ms — toda a diferença entre RTF 0,85 e RTF 0,69, por estradas com que um robô nem consegue
+colidir.
 
-**So the roads were baked into meshes, and the cost went away.** One OBJ per world in
-`models/carreador/meshes/`, every strip of every carreador a named object inside it, each SDF
-visual picking one out with `<submesh>`: 1486 road visuals in `citrus_farm` became **23**,
-and the whole property's roads across all four worlds are 3046 triangles and 153 kB. Headless,
-that world went from 28.8 s to **22.7 s**; interactively, from an RTF of 0.59–0.66 to **0.91**.
-The same trade as the trees, and the same lesson twice: at 0.6 µs a visual, what a scene costs is
-decided by how many entities it is cut into, not by how much geometry it contains. Thirteen
-thousand trees one visual each would never have run either.
+**Então as estradas foram pré-assadas em malhas, e o custo sumiu.** Um OBJ por mundo em
+`models/carreador/meshes/`, toda faixa de todo carreador um objeto nomeado dentro dele, cada visual
+SDF escolhendo um com `<submesh>`: 1486 visuais de estrada no `citrus_farm` viraram **23**, e as
+estradas da propriedade inteira nos quatro mundos são 3046 triângulos e 153 kB. Headless, aquele
+mundo foi de 28,8 s para **22,7 s**; interativamente, de um RTF de 0,59–0,66 para **0,91**. A mesma
+troca das árvores, e a mesma lição duas vezes: a 0,6 µs por visual, o que uma cena custa é decidido
+por em quantas entidades ela é cortada, e não por quanta geometria contém. Treze mil árvores com um
+visual cada também nunca teriam rodado.
 
-**The belt gives ground to the blocks, and the world stays the size it was.** The mata started as
-four patches inside the property, became one patch outside it, then a belt right round the
-outside, and has been trimmed twice since: 122 000 m² of canopy, then 60 000, now **24 000** — a
-strip **18 m** across where it started at 40. None of that went into making the world bigger.
-Nothing in it reaches past **332 m** from the origin, which is exactly where the belt reached when
-the property was a 400 m square; what changed is the fence, which has moved out from 200 m to
-**280** through ground the wood used to stand on. A belt is scenery nobody drives through and a
-talhão is what the machine is there for, so when the two want the same metres the talhão takes
-them — and what the wood is for, closing the horizon, 18 m of it does as well as 40.
+**O cinturão cede chão aos talhões, e o mundo fica do tamanho que era.** A mata começou como quatro
+manchas dentro da propriedade, virou uma mancha fora dela, depois um cinturão em volta, e foi
+aparada duas vezes desde então: 122 000 m² de copa, depois 60 000, agora **24 000** — uma faixa de
+**18 m** onde começou com 40. Nada disso foi para aumentar o mundo. Nada nele passa de **332 m** da
+origem, que é exatamente onde o cinturão chegava quando a propriedade era um quadrado de 400 m; o que
+mudou foi a cerca, que saiu de 200 m para **280** por chão onde a mata ficava. Um cinturão é cenário
+por onde ninguém dirige e um talhão é aquilo para o que a máquina está lá, então quando os dois
+querem os mesmos metros o talhão leva — e, para o que a mata serve, fechar o horizonte, 18 m dela
+fazem tão bem quanto 40.
 
-**Bake the variety, do not ration it.** Crown variety used to be something a world could barely
-afford. Measured on the crossroads world with its north-west quadrant planted plain and its
-south-east one fruiting, both 9 hectares:
+**Pré-asse a variedade, não a racione.** A variedade de copas era algo que um mundo mal podia pagar.
+Medido no mundo do cruzamento com o quadrante noroeste plantado liso e o sudeste com fruta, ambos de
+9 hectares:
 
-| | visuals, before | visuals, now |
+| | visuais, antes | visuais, agora |
 |---|---|---|
-| the fruiting talhão | 3194 | 244 |
-| the plain talhão | 2986 | 213 |
-| the two polygon-crown talhões | 922 | 918 |
-| everything else — roads, mata, terrain | 896 | 669 |
-| **whole world** | **7998**, RTF 0.45 | **2044**, RTF 1.00 |
+| o talhão com fruta | 3194 | 244 |
+| o talhão liso | 2986 | 213 |
+| os dois talhões de copa poligonal | 922 | 918 |
+| todo o resto — estradas, mata, terreno | 896 | 669 |
+| **mundo inteiro** | **7998**, RTF 0,45 | **2044**, RTF 1,00 |
 
-The fruit and the plain crown were never expensive trees. They were trees that could not be
-**baked eight to a mesh**, so each one cost a visual of its own and the fruit cost two, and the
-bill scaled with the block. `generate_citrus_meshes.py` now writes **four libraries** instead of
-one — two crowns, lumpy and smooth, each with and without fruit — every one in runs of eight,
-four and two, and a talhão is planted from whichever it wants. A block of fruit costs what a
-block of anything costs, so crown variety is now a free choice rather than a budget. The mesh
-library went from 10 MB to 47 MB, which is the whole price: baked fruit is cut to 18 oranges a
-tree against the single tree's 60, because a run is what a nine hectare block is planted from and
-nobody counts oranges at that distance.
+A fruta e a copa lisa nunca foram árvores caras. Eram árvores que não podiam ser **pré-assadas oito
+por malha**, então cada uma custava um visual próprio e a fruta custava dois, e a conta crescia com
+o talhão. O `generate_citrus_meshes.py` agora escreve **quatro bibliotecas** em vez de uma — duas
+copas, irregular e lisa, cada uma com e sem fruta —, todas em trechos de oito, quatro e dois, e um
+talhão é plantado com a que quiser. Um talhão de fruta custa o que um talhão de qualquer coisa custa,
+então a variedade de copas é agora uma escolha livre, e não um orçamento. A biblioteca de malhas foi
+de 10 MB para 47 MB, que é todo o preço: a fruta pré-assada é cortada para 18 laranjas por árvore
+contra as 60 da árvore avulsa, porque um trecho é aquilo com que um talhão de nove hectares é
+plantado, e ninguém conta laranjas a essa distância.
 
-Server only — `gz sim -s -r --iterations`, no vehicle spawned and nothing rendering — so the
-difference between the three is inside the noise, and the empty world's number is not the bargain
-it looks: it buys its 0.90 over **20000** steps of 1 ms against the farms' 6667 of 3 ms, a third
-of the cost a step. The interactive figure is the one that matters day to day, and it holds up:
-`citrus_farm_60` with the GUI open, the tractor spawned and its camera publishing, on **Mesa
-software rendering with no GPU**, sits at **RTF 0.69 to 0.80** over six samples. Measured the
-same way at each step: 0.92 to 1.10 with every talhão in baked runs, 0.74 to 1.07 once two of
-them were round and one fruiting, 0.69 to 0.80 once the round trees were given trunks. That
-sequence, and not the headless one, is what a visual actually costs — it is charged when
-something renders it, and the camera is what renders it.
+Só servidor — `gz sim -s -r --iterations`, nenhum veículo criado e nada renderizando —, então a
+diferença entre os três está dentro do ruído, e o número do mundo vazio não é a pechincha que
+parece: ele compra seu 0,90 em **20000** passos de 1 ms contra os 6667 de 3 ms das fazendas, um
+terço do custo por passo. O número interativo é o que importa no dia a dia, e ele se sustenta: o
+`citrus_farm_60` com a GUI aberta, o trator criado e a câmera dele publicando, em **renderização
+por software do Mesa sem GPU**, fica em **RTF 0,69 a 0,80** em seis amostras. Medido do mesmo jeito
+a cada etapa: 0,92 a 1,10 com todo talhão em trechos pré-assados, 0,74 a 1,07 quando dois deles
+ficaram redondos e um com fruta, 0,69 a 0,80 quando as árvores redondas ganharam troncos. Essa
+sequência, e não a headless, é o que um visual custa de fato — ele é cobrado quando algo o
+renderiza, e a câmera é o que o renderiza.
 
-If more is wanted back, the round trunks are the place to look: they are 580 of the 4658 visuals
-in that world and they exist for looks, not for driving. Baking the round tree into runs of eight
-the way the mesh tree is baked would take a round talhão from one visual a tree to one per eight,
-at the cost of the round crown no longer being a primitive.
+Se quiser recuperar mais, os troncos redondos são o lugar para olhar: são 580 dos 4658 visuais
+daquele mundo e existem pela aparência, não pela condução. Pré-assar a árvore redonda em trechos de
+oito como a árvore em malha é pré-assada levaria um talhão redondo de um visual por árvore para um
+por oito, ao custo de a copa redonda deixar de ser uma primitiva.
 
-Parked machinery goes in the yard, and moving machinery on the carreadores; neither belongs in
-an alley. An alley is 6.5 m of carreira less **3.95 m** of canopy, so a 2.15 m tractor clears it
-by 0.2 m a side — it fits, just, and it also blocks the alley outright, which is the whole
-argument. That figure used to be quoted as 3.5 m of canopy and 0.4 m a side, and both were wrong:
-nobody had measured the mesh, which came out of its generator at **4.6 m**, leaving 1.9 m of
-alley that the tractor did not fit down at all. Cutting the crowns back by a seventh is what
-made the arithmetic true.
+Maquinário estacionado vai no pátio, e maquinário em movimento nos carreadores; nenhum dos dois cabe
+num corredor. Um corredor são 6,5 m de carreira menos **3,95 m** de copa, então um trator de 2,15 m
+passa com 0,2 m de cada lado — cabe, por pouco, e também bloqueia o corredor por inteiro, que é todo
+o argumento. Esse número era citado como 3,5 m de copa e 0,4 m de cada lado, e os dois estavam
+errados: ninguém tinha medido a malha, que saía do gerador com **4,6 m**, deixando 1,9 m de corredor
+por onde o trator não passava de jeito nenhum. Cortar as copas em um sétimo foi o que tornou a
+aritmética verdadeira.
 
-### Changing a field
+### Mudando um campo
 
-The three worlds are generated, and the generated SDF is committed — the build never runs the
-generator, and Gazebo only ever reads the SDF. Edit the layout constants at the top of the
-matching builder in `agri_gz_worlds/scripts/generate_agriculture_worlds.py` (row spacing, lane width,
-slope, number of rows) and regenerate. Two tables near the top of that file are the ones worth
-knowing: `THROUGH_BLOCKS`, which is where the talhões are, and `PLANTING`, which is what each of
-them is planted with — moving a block to `"round"` or `"fruit"` there is the whole of changing a
-crown:
-
-```bash
-python3 agri_gz_worlds/scripts/generate_agriculture_worlds.py          # rewrite in place
-python3 agri_gz_worlds/scripts/generate_agriculture_worlds.py --out /tmp   # look first
-```
-
-The trees themselves come out of a second generator, which writes the six crowns — trunk and all
-— and their fruit into `models/citrus_tree/meshes/` as OBJ. Change the shape of a citrus — how many
-lobes, how deep the skirt, how much fruit — there, and rerun it; the worlds do not have to be
-regenerated afterwards, since they only ever name the mesh files.
+Os mundos são gerados, e o SDF gerado vai no commit — a build nunca roda o gerador, e o Gazebo só lê
+o SDF. Edite as constantes de traçado no topo do construtor correspondente em
+`agri_gz_worlds/scripts/generate_agriculture_worlds.py` (espaçamento de fileiras, largura de
+corredor, inclinação, número de fileiras) e gere de novo. Duas tabelas perto do topo desse arquivo
+são as que vale conhecer: `THROUGH_BLOCKS`, que é onde ficam os talhões, e `PLANTING`, que é com o
+que cada um é plantado — mudar um talhão para `"round"` ou `"fruit"` ali é tudo o que trocar uma
+copa exige:
 
 ```bash
-python3 agri_gz_worlds/scripts/generate_citrus_meshes.py               # rewrite in place
-python3 agri_gz_worlds/scripts/generate_citrus_meshes.py --out /tmp    # look first
+python3 agri_gz_worlds/scripts/generate_agriculture_worlds.py          # reescreve no lugar
+python3 agri_gz_worlds/scripts/generate_agriculture_worlds.py --out /tmp   # olhar antes
 ```
 
-Both generators need nothing but Python 3, and the OBJ carries its colours in a `.mtl` beside it
-rather than in the world: one mesh holds a green crown and a brown trunk, and an SDF `<material>`
-can only override a mesh with a single colour.
+As árvores em si saem de um segundo gerador, que escreve as copas — com tronco e tudo — e a fruta
+delas em `models/citrus_tree/meshes/` como OBJ. Mude ali a forma de um citros — quantos lóbulos,
+quão funda a saia, quanta fruta — e rode de novo; os mundos não precisam ser gerados de novo depois,
+já que só nomeiam os arquivos de malha.
 
-## Adding a vehicle
+```bash
+python3 agri_gz_worlds/scripts/generate_citrus_meshes.py               # reescreve no lugar
+python3 agri_gz_worlds/scripts/generate_citrus_meshes.py --out /tmp    # olhar antes
+```
 
-Copy `autonomous_tractor_gz/` to `<vehicle>_gz/` and point it at the matching
-`<vehicle>_description`. Three things do not get copied:
+Os dois geradores só precisam de Python 3, e o OBJ leva as cores num `.mtl` ao lado, e não no mundo:
+uma malha tem uma copa verde e um tronco marrom, e um `<material>` do SDF só consegue sobrescrever
+uma malha com uma cor só.
 
-- the worlds, which stay in `agri_gz_worlds/` — that is why it is a package of its own;
-- the launch, which stays in `agri_gz_bringup/` — the copy keeps only the wrapper that names the
-  vehicle, and the wrapper is a dozen lines;
-- the sensor behaviour, which stays in `agri_gz_bringup/urdf/sensors.gz.xacro` — a second machine
-  carrying the same lidar should not carry a second opinion about its noise.
+## Adicionando um veículo
 
-Keep the three file names the generic launches look for: `urdf/<vehicle>.gz.xacro`,
-`config/bridge.yaml` and `config/spawn.yaml` (its `z:` is the height the vehicle is dropped
-from). Once it builds, the vehicle can be spawned alone (`sim.launch.py robot:=<vehicle>`) or
-take either role in a convoy (`leader:=` / `follower:=`), in every project.
+Copie `autonomous_tractor_gz/` para `<veiculo>_gz/` e aponte-o para o `<veiculo>_description`
+correspondente (em `robot_description`). Três coisas não são copiadas:
 
-## Why the Gazebo tags are here and not in the description
+- os mundos, que ficam em `agri_gz_worlds/` — por isso é um pacote próprio;
+- o launch, que fica em `agri_gz_bringup/` — a cópia guarda só o wrapper que dá nome ao veículo, e o
+  wrapper tem uma dúzia de linhas;
+- o comportamento dos sensores, que fica em `agri_gz_bringup/urdf/sensors.gz.xacro` — uma segunda
+  máquina com o mesmo lidar não deve carregar uma segunda opinião sobre o ruído dele.
 
-`autonomous_tractor_gz/urdf/autonomous_tractor.gz.xacro` includes the pure description from
-`autonomous_tractor_description` and adds the `<gazebo>` blocks — plugins, friction, sensor
-noise. The dependency points one way: `autonomous_tractor_gz` → `autonomous_tractor_description`,
-never back. A description package that depends on Gazebo can no longer be used with rviz alone,
-with MoveIt, or on the real machine.
+Mantenha os três nomes de arquivo que os launches genéricos procuram: `urdf/<veiculo>.gz.xacro`,
+`config/bridge.yaml` e `config/spawn.yaml` (o `z:` dele é a altura de onde o veículo cai). O veículo
+também precisa do `config/<veiculo>.yaml` no `vehicle_control`, com os controladores dele. Depois de
+compilar (`scripts/compile.sh <veiculo>_gz` na raiz do workspace), o veículo pode ser criado sozinho
+(`sim.launch.py robot:=<veiculo>`) ou assumir qualquer papel num comboio (`leader:=` / `follower:=`),
+em todo projeto.
 
-## Two traps this workspace has already fallen into
+## Por que as tags do Gazebo estão aqui e não na descrição
 
-**A plugin's relative topic is not scoped by the model.** `<topic>cmd_vel</topic>` inside a
-plugin publishes on `/cmd_vel`, at the root, not on `/model/<name>/cmd_vel` — so two machines in
-one world both drive off the same topic and both publish the same odometry. Every topic in
-`autonomous_tractor.gz.xacro` is therefore written out in full, starting with `/model/<name>/`,
-and `bridge.yaml` is a template with `{name}` in it so it can name the same ones.
+O `autonomous_tractor_gz/urdf/autonomous_tractor.gz.xacro` inclui a descrição pura do
+`autonomous_tractor_description` e acrescenta os blocos `<gazebo>` — plugins, atrito, ruído de
+sensor. A dependência aponta para um lado só: `autonomous_tractor_gz` →
+`autonomous_tractor_description`, nunca o contrário. Um pacote de descrição que depende do Gazebo
+não pode mais ser usado só com o rviz, com o MoveIt ou na máquina real.
 
-**A GNSS's horizontal noise is in degrees.** Gazebo adds it to the latitude and longitude as they
-are, so `<stddev>1.0</stddev>` is not one metre of scatter but one degree of it — 111 km. The
-`gz_navsat` macro takes metres and divides; the symptom, if it is ever bypassed, is a fix that
-looks plausible and wanders across state lines. A world also needs `<spherical_coordinates>`, or
-there is no datum to convert against: all of these worlds carry the same one, Bebedouro/SP.
+## Duas armadilhas em que este workspace já caiu
+
+**O tópico relativo de um plugin não tem o escopo do modelo.** `<topic>cmd_vel</topic>` dentro de um
+plugin publica em `/cmd_vel`, na raiz, e não em `/model/<nome>/cmd_vel` — então duas máquinas num
+mundo andam pelo mesmo tópico e publicam a mesma odometria. Todo tópico no
+`autonomous_tractor.gz.xacro` é, por isso, escrito por extenso, começando com `/model/<nome>/`, e o
+`bridge.yaml` é um template com `{name}` para poder nomear os mesmos.
+
+**O ruído horizontal de um GNSS é em graus.** O Gazebo o soma à latitude e à longitude como estão,
+então `<stddev>1.0</stddev>` não é um metro de dispersão, mas um grau — 111 km. O macro `gz_navsat`
+recebe metros e divide; o sintoma, se ele for contornado, é um fix que parece plausível e passeia
+por outros estados. Um mundo também precisa de `<spherical_coordinates>`, ou não há datum contra o
+qual converter: todos estes mundos levam o mesmo, Bebedouro/SP.
