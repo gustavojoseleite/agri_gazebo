@@ -68,7 +68,7 @@ Ou comande direto, que é o que um script faria:
 ```bash
 ros2 topic pub /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 2.0}, angular: {z: 0.3}}" -r 20
 ros2 topic echo /odom
-ros2 control list_controllers           # os dois devem estar active alguns segundos após o spawn
+ros2 control list_controllers           # os três devem estar active alguns segundos após o spawn
 ```
 
 `angular.z` é uma **taxa de yaw**, não um ângulo de direção: o controlador de direção calcula o que
@@ -78,11 +78,12 @@ de recusar.
 
 ### Como os veículos são dirigidos
 
-Pelo **ros2_control**, o padrão: o bloco `<ros2_control>` de cada veículo (do
+Pelo **ros2_control**: o bloco `<ros2_control>` de cada veículo (do
 `vehicle_common_description`) recebe o plugin de hardware do Gazebo, o `gz_ros2_control` roda um
 controller manager para ele dentro do simulador, no namespace do veículo, e o `vehicles.py` cria o
-`joint_state_broadcaster` e o `ackermann_steering_controller` e inicia o `cmd_vel_limiter` na
-frente dele. Os controladores, seus parâmetros e os limites são do `vehicle_control`, os mesmos do
+`joint_state_broadcaster`, o `ackermann_steering_controller` (direção e rodas traseiras) e o
+`front_drive_controller` (rodas dianteiras: tração nas quatro) e inicia o `cmd_vel_limiter` na
+frente deles. Os controladores, seus parâmetros e os limites são do `vehicle_control`, os mesmos do
 mock e da máquina; nada de condução é configurado aqui. Os tópicos não mudaram: `cmd_vel` entra,
 `odom`, `tf` e `joint_states` saem.
 
@@ -92,10 +93,9 @@ cada veículo tem o seu manager, `/<namespace>/controller_manager`, e cada um tr
 um momento enquanto carrega, então a partida de cinco veículos leva boa parte de um minuto. Rode o
 Gazebo com GPU: sem ela o `citrus_farm` roda a cerca de um décimo do tempo real.
 
-`control:=plugin` (no `sim.launch.py`, no `convoy.launch.py` e nos launches do FTL) traz de volta o
-caminho antigo, o plugin Ackermann do Gazebo com a seção de tração do `bridge.yaml`. Ele fica
-enquanto o ros2_control está sendo provado e depois sai; a comparação está no README do
-`vehicle_control`.
+O plugin Ackermann do Gazebo, que dirigia os veículos antes, saiu em 2026-11-12 (com a seção de
+tração do `bridge.yaml`), depois de uma volta completa do FTL nos dois caminhos; a comparação está
+no README do `vehicle_control`. O `bridge.yaml` agora só leva o relógio e os sensores.
 
 ### Um comboio
 

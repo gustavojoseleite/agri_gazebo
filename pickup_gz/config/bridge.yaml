@@ -24,45 +24,6 @@
   gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
 
-# ── Drive ────────────────────────────────────────────────────────────────────
-#
-# Only with control:=plugin, the Gazebo Ackermann plugin. With ros2_control
-# (the default) the controller publishes odom, tf and joint_states itself and
-# reads cmd_vel through vehicle_control's cmd_vel_limiter, so vehicles.py drops
-# everything from here to the Sensors marker: load bearing, do not reword it.
-
-# Velocity command: the only topic flowing into the simulator. Both Ackermann
-# instances (rear axle and front axle) listen on it.
-- ros_topic_name: "cmd_vel"
-  gz_topic_name: "/model/{name}/cmd_vel"
-  ros_type_name: "geometry_msgs/msg/Twist"
-  gz_type_name: "gz.msgs.Twist"
-  direction: ROS_TO_GZ
-
-# Odometry from the rear axle instance. The front one publishes to
-# odom_front_unused, which is deliberately not bridged.
-- ros_topic_name: "odom"
-  gz_topic_name: "/model/{name}/odom"
-  ros_type_name: "nav_msgs/msg/Odometry"
-  gz_type_name: "gz.msgs.Odometry"
-  direction: GZ_TO_ROS
-
-# odom -> base_footprint. The rest of the TF tree comes from
-# robot_state_publisher on the ROS side.
-- ros_topic_name: "tf"
-  gz_topic_name: "/model/{name}/tf"
-  ros_type_name: "tf2_msgs/msg/TFMessage"
-  gz_type_name: "gz.msgs.Pose_V"
-  direction: GZ_TO_ROS
-
-# Wheel and steering angles. gz.msgs.Model is the correct counterpart here — the
-# joint state publisher plugin ships joint positions inside a Model message.
-- ros_topic_name: "joint_states"
-  gz_topic_name: "/model/{name}/joint_states"
-  ros_type_name: "sensor_msgs/msg/JointState"
-  gz_type_name: "gz.msgs.Model"
-  direction: GZ_TO_ROS
-
 # ── Sensors ──────────────────────────────────────────────────────────────────
 #
 # Everything below this line is dropped when a vehicle is spawned with

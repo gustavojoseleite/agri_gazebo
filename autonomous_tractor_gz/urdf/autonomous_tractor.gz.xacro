@@ -26,17 +26,15 @@
        with) but not a camera. Defaults to whatever sensors:= says. -->
   <xacro:arg name="camera" default="$(arg sensors)"/>
 
-  <!-- How it is driven: ros2_control (vehicle_control's controllers, the same
-       as on the mock and the machine) or plugin (the Gazebo Ackermann plugin,
-       the old path). See agri_gz_bringup/urdf/control.gz.xacro. -->
-  <xacro:arg name="control" default="ros2_control"/>
+  <!-- Read by agri_gz_bringup/urdf/control.gz.xacro: the vehicle's ROS
+       namespace, and the controllers' parameters (vehicles.py passes a copy
+       narrowed to that namespace). -->
   <xacro:arg name="namespace" default=""/>
   <xacro:arg name="controllers" default="$(find vehicle_control)/config/autonomous_tractor.yaml"/>
 
-  <!-- Brings in the links, joints and — just as importantly — the properties
-       from params.xacro. The plugin below reads wheel_base, track and the wheel
-       radii straight back out of them, so resizing the tractor cannot leave the
-       controller computing turns for a machine that no longer exists. -->
+  <!-- Brings in the links, joints and properties from params.xacro. The
+       controllers carry their own copy of the geometry, and
+       vehicle_control/test/test_configs.py fails if it stops matching. -->
   <xacro:include filename="$(find autonomous_tractor_description)/urdf/autonomous_tractor.urdf.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/sensors.gz.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/control.gz.xacro"/>
@@ -56,95 +54,17 @@
        scripts (it warns and substitutes one of its own), and the URDF's own
        colours are the prop's, which is the whole point. -->
 
-  <!-- ── Drivetrain, ros2_control ─────────────────────────────────────── -->
-  <xacro:if value="${'$(arg control)' == 'ros2_control'}">
-    <xacro:gz_ros2_control name="autonomous_tractor"/>
-  </xacro:if>
-
-  <xacro:if value="${'$(arg control)' == 'plugin'}">
   <!-- ── Drivetrain ──────────────────────────────────────────────────────── -->
 
-  <!--
-    Ackermann steering on the front axle, drive on all four wheels.
-
-    Two plugin instances, not one, and the reason is the wheel sizes. The
-    plugin turns a commanded linear velocity into a joint speed with a single
-    <wheel_radius>: give it all four joints and the front pair — 0.45 m against
-    0.75 m — is commanded at 60% of the speed the ground demands, and the front
-    axle drags the machine instead of driving it. A real MFWD tractor solves
-    that with a gear ratio between the axles; here each axle gets its own
-    instance with its own radius, which is the same thing.
-
-    Both instances listen on the same cmd_vel and both command the same two
-    steering joints with identical values, so they cannot disagree. Only the
-    rear instance owns the odometry and the odom -> base_footprint transform;
-    the front one publishes its own to a topic nothing bridges, because there
-    is no way to switch it off.
-  -->
-  <xacro:macro name="ackermann_axle" params="left_wheel right_wheel radius odom tf">
-    <plugin filename="gz-sim-ackermann-steering-system"
-            name="gz::sim::systems::AckermannSteering">
-      <left_joint>${left_wheel}</left_joint>
-      <right_joint>${right_wheel}</right_joint>
-      <left_steering_joint>left_steer_joint</left_steering_joint>
-      <right_steering_joint>right_steer_joint</right_steering_joint>
-      <kingpin_width>${kingpin_width}</kingpin_width>
-      <steering_limit>${steering_limit}</steering_limit>
-      <wheel_base>${wheel_base}</wheel_base>
-      <wheel_separation>${track_rear}</wheel_separation>
-      <wheel_radius>${radius}</wheel_radius>
-      <!-- 15 km/h forward, 6 km/h back: a utility tractor's working range. -->
-      <min_velocity>-1.7</min_velocity>
-      <max_velocity>4.2</max_velocity>
-      <min_acceleration>-3.0</min_acceleration>
-      <max_acceleration>1.5</max_acceleration>
-      <topic>${ns}/cmd_vel</topic>
-      <odom_topic>${ns}/${odom}</odom_topic>
-      <tf_topic>${ns}/${tf}</tf_topic>
-      <frame_id>odom</frame_id>
-      <child_frame_id>base_footprint</child_frame_id>
-      <odom_publish_frequency>30</odom_publish_frequency>
-    </plugin>
-  </xacro:macro>
-
-  <gazebo>
-    <!-- Every topic is absolute and starts with /model/<name>/. A relative name
-         here does NOT get scoped by the model — Gazebo publishes it at the root,
-         so two machines in one world would both land on /cmd_vel and /odom.
-         Writing the scope out is what keeps them apart, and it is the same
-         string the bridge config is given. -->
-    <xacro:ackermann_axle
-                          left_wheel="left_rear_wheel_joint"
-                          right_wheel="right_rear_wheel_joint"
-                          radius="${rear_wheel_radius}"
-                          odom="odom" tf="tf"/>
-
-    <xacro:ackermann_axle
-                          left_wheel="left_front_wheel_joint"
-                          right_wheel="right_front_wheel_joint"
-                          radius="${front_wheel_radius}"
-                          odom="odom_front_unused" tf="tf_front_unused"/>
-
-    <!-- Publishes the joint angles so robot_state_publisher can complete the TF
-         tree. Without it the wheels are frozen in rviz while the tractor drives,
-         and the steering never appears to turn at all.
-
-         It publishes every physics step and takes no rate of its own — 1 kHz at
-         this world's 1 ms step, measured. Six joints is cheap enough to leave
-         alone; if it ever shows up in a profile, the place to throttle it is the
-         bridge, not here. -->
-    <plugin filename="gz-sim-joint-state-publisher-system"
-            name="gz::sim::systems::JointStatePublisher">
-      <topic>${ns}/joint_states</topic>
-      <joint_name>left_rear_wheel_joint</joint_name>
-      <joint_name>right_rear_wheel_joint</joint_name>
-      <joint_name>left_front_wheel_joint</joint_name>
-      <joint_name>right_front_wheel_joint</joint_name>
-      <joint_name>left_steer_joint</joint_name>
-      <joint_name>right_steer_joint</joint_name>
-    </plugin>
-  </gazebo>
-  </xacro:if>
+  <!-- ros2_control, the same controllers and config as on the mock and the
+       machine (vehicle_control/config/autonomous_tractor.yaml): Ackermann
+       steering on the front axle, drive on all four wheels, the rear pair from
+       the steering controller and the front pair from front_drive_controller. Only the
+       hardware plugin is Gazebo's; see agri_gz_bringup/urdf/control.gz.xacro.
+       The front wheels are 0.45 m against 0.75 m at the rear;
+       front_drive_controller has both radii and turns each at its ground speed.
+       -->
+  <xacro:gz_ros2_control name="autonomous_tractor"/>
 
   <!-- ── Sensors ─────────────────────────────────────────────────────────── -->
 

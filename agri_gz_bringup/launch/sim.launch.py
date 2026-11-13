@@ -22,13 +22,10 @@ These come up together:
   robot_state_publisher   URDF + /joint_states -> the TF tree
   create                  spawns the robot from the robot_description topic
   parameter_bridge        connects the gz topics (clock, sensors) to ROS
-  spawner                 joint_state_broadcaster and ackermann_steering_controller,
-                          in the controller manager gz_ros2_control runs inside
-                          Gazebo (control:=ros2_control, the default)
+  spawner                 joint_state_broadcaster, ackermann_steering_controller
+                          and front_drive_controller, in the controller manager
+                          gz_ros2_control runs inside Gazebo
   cmd_vel_limiter         cmd_vel -> limits -> the steering controller
-
-control:=plugin swaps the last two for the Gazebo Ackermann plugin and the
-drive section of bridge.yaml (odom, tf, joint_states across the bridge).
 
 Two names, two different jobs:
 
@@ -84,18 +81,11 @@ def launch_setup(context, *args, **kwargs):
 
     pose = tuple(LaunchConfiguration(k).perform(context)
                  for k in ("x", "y", "z", "yaw"))
-    control = LaunchConfiguration("control").perform(context)
-    return [gz_sim, *vehicle_nodes(robot, name, namespace, pose, control=control)]
+    return [gz_sim, *vehicle_nodes(robot, name, namespace, pose)]
 
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument(
-            "control",
-            default_value="ros2_control",
-            description=("How the vehicles are driven: ros2_control (vehicle_control's "
-                         "controllers) or plugin (the Gazebo Ackermann plugin)."),
-        ),
         DeclareLaunchArgument(
             "robot",
             default_value="autonomous_tractor",

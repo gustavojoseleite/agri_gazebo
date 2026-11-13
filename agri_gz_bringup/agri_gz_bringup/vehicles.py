@@ -28,10 +28,6 @@ from vehicle_control.launch_nodes import control_config, control_nodes
 # <robot>_gz/config/bridge.yaml carries this line, and it is why a follower
 # spawned without sensors also arrives without their topics.
 SENSOR_MARKER = "# \u2500\u2500 Sensors "
-# And where the drive topics start, above it: cmd_vel, odom, tf, joint_states.
-# They come from the Gazebo plugin only; under ros2_control the controllers
-# publish them, so this section goes.
-DRIVE_MARKER = "# \u2500\u2500 Drive "
 # And where the camera starts, below it: the camera has its own switch.
 CAMERA_MARKER = "# \u2500\u2500 Camera "
 
@@ -67,8 +63,7 @@ def spawn_height(robot):
     return float(yaml.safe_load(path.read_text())["z"])
 
 
-def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None,
-                  control="ros2_control"):
+def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
     """The nodes one machine needs, and the bridge config they share.
 
     robot      which vehicle type: autonomous_tractor, pickup
@@ -80,10 +75,6 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None,
     camera     false leaves the camera off and keeps GNSS and IMU; None
                means the same as sensors. A convoy's followers localise
                with GNSS and IMU and do not need the expensive camera.
-    control    ros2_control: vehicle_control's controllers behind a
-               controller manager inside Gazebo, plus their spawners and the
-               cmd_vel limiter. plugin: the Gazebo Ackermann plugin, the old
-               path, with no ROS nodes of its own.
 
     The model name reaches the xacro because sensors take an absolute gz topic
     — a relative one would be scoped under the world name as well, which the
@@ -104,12 +95,12 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None,
     # and any node reading this vehicle's TF takes the same two remaps.
     tf_remaps = [("/tf", "tf"), ("/tf_static", "tf_static")] if namespace else []
 
-    if control not in ("ros2_control", "plugin"):
-        raise ValueError(f"control:={control}: expected ros2_control or plugin")
-    ros2_control = control == "ros2_control"
-    # Per namespace: every gz_ros2_control in the one Gazebo process would
-    # otherwise read the same parameters. See vehicle_control.launch_nodes.
-    controllers = control_config(robot, namespace) if ros2_control else ""
+    # The vehicle is driven by vehicle_control's controllers, behind a
+    # controller manager that gz_ros2_control runs inside Gazebo; they publish
+    # odom, tf and joint_states and read cmd_vel through the limiter. The config
+    # is written per namespace: every gz_ros2_control in the one Gazebo process
+    # would otherwise read the same parameters. See vehicle_control.launch_nodes.
+    controllers = control_config(robot, namespace)
 
     robot_description = ParameterValue(
         Command([
@@ -117,9 +108,8 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None,
             " name:=", name,
             " sensors:=", "true" if sensors else "false",
             " camera:=", "true" if camera else "false",
-            " control:=", control,
             " namespace:=", namespace,
-            *([" controllers:=", controllers] if ros2_control else []),
+            " controllers:=", controllers,
         ]),
         value_type=str,
     )
@@ -129,9 +119,6 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None,
     # bridge opens it after the launch description has been built; it is a few
     # hundred bytes in the system temp directory and the OS reclaims it.
     config = bridge.read_text()
-    if ros2_control:
-        head, rest = config.split(DRIVE_MARKER)
-        config = head + SENSOR_MARKER + rest.split(SENSOR_MARKER)[1]
     if not sensors:
         # A bridge entry whose gz topic has no publisher still creates the ROS
         # topic, and a topic that exists and never carries anything is worse
@@ -192,6 +179,4 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None,
             output="screen",
         ),
     ]
-    if ros2_control:
-        nodes += control_nodes(namespace, controllers)
-    return nodes
+    return nodes + control_nodes(namespace, controllers)
