@@ -33,6 +33,10 @@
   <xacro:arg name="camera_p1" default="0"/>
   <xacro:arg name="camera_p2" default="0"/>
 
+  <!-- Plano de corte distante da câmera, em m. A tag é lida até uns 20 m; mais longe
+       só há árvores, que custam tempo de renderização sem servir a nada. -->
+  <xacro:arg name="camera_far" default="60.0"/>
+
   <!-- Lidos pelo agri_gz_bringup/urdf/control.gz.xacro: o namespace ROS do
        veículo e os parâmetros dos controladores (o vehicles.py passa uma cópia
        restrita a esse namespace). -->
@@ -99,19 +103,22 @@
     <xacro:gz_camera link="camera_front_link" optical_frame="camera_front_optical_frame"
                      topic="${ns}/camera_front/image"
                      k1="$(arg camera_k1)" k2="$(arg camera_k2)" k3="$(arg camera_k3)"
-                     p1="$(arg camera_p1)" p2="$(arg camera_p2)"/>
+                     p1="$(arg camera_p1)" p2="$(arg camera_p2)"
+                     far="$(arg camera_far)"/>
   </xacro:if>
   <xacro:if value="${'$(arg camera_mount)' == 'dual'}">
     <xacro:gz_camera link="camera_front_left_link"
                      optical_frame="camera_front_left_optical_frame"
                      topic="${ns}/camera_front_left/image" hfov="${pi / 2}"
                      k1="$(arg camera_k1)" k2="$(arg camera_k2)" k3="$(arg camera_k3)"
-                     p1="$(arg camera_p1)" p2="$(arg camera_p2)"/>
+                     p1="$(arg camera_p1)" p2="$(arg camera_p2)"
+                     far="$(arg camera_far)"/>
     <xacro:gz_camera link="camera_front_right_link"
                      optical_frame="camera_front_right_optical_frame"
                      topic="${ns}/camera_front_right/image" hfov="${pi / 2}"
                      k1="$(arg camera_k1)" k2="$(arg camera_k2)" k3="$(arg camera_k3)"
-                     p1="$(arg camera_p1)" p2="$(arg camera_p2)"/>
+                     p1="$(arg camera_p1)" p2="$(arg camera_p2)"
+                     far="$(arg camera_far)"/>
   </xacro:if>
 
   <!-- ── Pose real ────────────────────────────────────────────────────────── -->

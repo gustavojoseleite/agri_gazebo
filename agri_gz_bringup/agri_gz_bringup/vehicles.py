@@ -54,13 +54,17 @@ def convoy_line(leader, follower, followers, prefix, leader_name=""):
     return line
 
 
-def bridge_config(text, name, camera_mount):
+def bridge_config(text, name, camera_mount, clock=True):
     """As entradas da ponte de um veículo, a partir do `bridge.yaml` dele.
 
-    `{name}` vira o nome do modelo. Na montagem `dual`, as entradas da `camera_front`
-    são trocadas pelas das duas câmeras, `camera_front_left` e `camera_front_right`.
+    `{name}` vira o nome do modelo. Com `clock=False` a entrada do `/clock` sai: num comboio
+    o relógio vem de uma ponte só, e não de uma por veículo. Na montagem `dual`, as entradas
+    da `camera_front` são trocadas pelas das duas câmeras, `camera_front_left` e
+    `camera_front_right`.
     """
     entries = yaml.safe_load(text.replace("{name}", name)) or []
+    if not clock:
+        entries = [e for e in entries if e["ros_topic_name"] != "/clock"]
     if camera_mount != "dual":
         return entries
     result = []
@@ -133,7 +137,7 @@ def spawn_height(robot):
 
 
 def vehicle_nodes(robot, name, namespace, pose, tag_id=0, tag_family="36h11", tag_size=0.5,
-                  camera=False, camera_mount="single", sensor_profile="default"):
+                  camera=False, camera_mount="single", sensor_profile="default", clock=True):
     """Os nós de que uma máquina precisa e a configuração de ponte que eles dividem.
 
     robot           o tipo do veículo: autonomous_tractor, pickup
@@ -146,6 +150,8 @@ def vehicle_nodes(robot, name, namespace, pose, tag_id=0, tag_family="36h11", ta
                     todo veículo tem GNSS, IMU e tag
     camera_mount    `single` ou `dual`, só vai ao xacro de quem tem câmera
     sensor_profile  `default`, `nominal` ou `ideal`: o perfil de GNSS e IMU
+    clock           false tira o `/clock` da ponte do veículo; num comboio ele vem de uma
+                    ponte só, e não de uma por veículo
 
     O nome do modelo chega ao xacro porque os sensores usam um tópico gz
     absoluto (um relativo ficaria sob o nome do mundo também, e a ponte teria
@@ -193,7 +199,7 @@ def vehicle_nodes(robot, name, namespace, pose, tag_id=0, tag_family="36h11", ta
     # preenchido. `delete=False` porque a ponte o abre depois que a descrição do
     # `launch` foi montada; são algumas centenas de bytes no diretório temporário
     # do sistema, e o SO os recupera.
-    entries = bridge_config(bridge.read_text(), name, camera_mount)
+    entries = bridge_config(bridge.read_text(), name, camera_mount, clock)
     if not camera:
         # Uma entrada da ponte cujo tópico gz não tem publicador ainda cria o
         # tópico ROS, e um tópico que existe e nunca carrega nada é pior que

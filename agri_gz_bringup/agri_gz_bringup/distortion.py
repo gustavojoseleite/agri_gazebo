@@ -27,3 +27,26 @@ def distortion_maps(K, D, width, height):
     map_y = normalized[:, 1] * K[1, 1] + K[1, 2]
     return (map_x.reshape(height, width).astype(np.float32),
             map_y.reshape(height, width).astype(np.float32))
+
+
+class Distorter:
+    """Aplica a distorção com o mapa do `remap` em ponto fixo,
+    mais rápido que o de ponto flutuante.
+
+    Os mapas ficam em `map1` (`int16`, com a forma `(height, width, 2)`) e `map2` (`uint16`).
+    Com `D` nulo não há mapa: `apply` devolve a própria imagem, sem cópia.
+    """
+
+    def __init__(self, K, D, width, height):
+        self.map1 = None
+        self.map2 = None
+        if not np.any(D):
+            return
+        map_x, map_y = distortion_maps(K, D, width, height)
+        self.map1, self.map2 = cv2.convertMaps(map_x, map_y, cv2.CV_16SC2)
+
+    def apply(self, image):
+        """Devolve a imagem distorcida; com `D` nulo, a própria `image`."""
+        if self.map1 is None:
+            return image
+        return cv2.remap(image, self.map1, self.map2, cv2.INTER_LINEAR)

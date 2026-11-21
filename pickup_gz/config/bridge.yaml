@@ -18,6 +18,7 @@
 
 # Tempo de simulação. Tudo o mais que define `use_sim_time` depende de este
 # chegar, por isso ele vem primeiro. É do nível do mundo, logo fora de /model/.
+# Num comboio ele vem de uma ponte só (`convoy.launch.py`), e `clock=False` o tira daqui.
 - ros_topic_name: "/clock"
   gz_topic_name: "/clock"
   ros_type_name: "rosgraph_msgs/msg/Clock"
