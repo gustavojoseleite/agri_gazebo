@@ -24,7 +24,7 @@
   gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
 
-# ── Sensors ──────────────────────────────────────────────────────────────────
+# ── Sensores ─────────────────────────────────────────────────────────────────
 #
 # Tudo abaixo desta linha é descartado quando um veículo é criado com
 # sensors:=false, que é como os seguidores de um comboio sobem: os tópicos gz
@@ -45,7 +45,7 @@
   gz_type_name: "gz.msgs.NavSat"
   direction: GZ_TO_ROS
 
-# ── Camera ───────────────────────────────────────────────────────────────────
+# ── Câmera ───────────────────────────────────────────────────────────────────
 #
 # Descartada também quando um veículo é criado com camera:=false (os seguidores
 # de um comboio). O vehicles.py corta aqui também: é estrutural, não o reescreva.
