@@ -3,15 +3,18 @@
 <package format="3">
   <name>agri_gz_bringup</name>
   <version>0.1.0</version>
-  <description>The launches every vehicle shares (one vehicle, or a convoy of them), the vehicles Python module behind them, and the Gazebo-side xacro macros they all reuse.</description>
+  <description>
+    Os `launch` que todo veículo compartilha (um veículo ou um comboio deles), o módulo Python
+    `vehicles` por trás deles e as macros `xacro` do lado Gazebo que todos reaproveitam.
+  </description>
   <maintainer email="gujoseleite@gmail.com">Gustavo</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
 
-  <!-- Deliberately no dependency on any <vehicle>_gz package: this one is
-       generic, the vehicles depend on it, never the other way round. -->
+  <!-- Sem dependência de nenhum pacote <veículo>_gz de propósito: este é
+       genérico, os veículos dependem dele, nunca o contrário. -->
   <exec_depend>agri_gz_worlds</exec_depend>
   <exec_depend>vehicle_control</exec_depend>
   <exec_depend>launch</exec_depend>

@@ -1,31 +1,29 @@
 <?xml version="1.0"?>
 <!--
-  A tree of the mata: 6.7 m tall, 5.2 m across, on a trunk you can see under.
+  Uma árvore da mata: 6.7 m de altura, 5.2 m de largura, num tronco por baixo do qual se vê.
 
-  Two ellipsoids, one inside the other. The outer one is the canopy and the
-  inner one is the dense crown around the trunk, a shade lighter, and the
-  reason for both is what the pair does to a sensor rather than what it does
-  to a drawing. A single ellipsoid is one smooth surface: a camera sees one
-  gradient across it and a depth sensor sees one clean hull, which is what a
-  citrus in a row actually looks like but not what standing timber looks like.
-  Two nested ellipsoids of different colours give the silhouette an interior,
-  so the mata does not read as a row of oversized oranges.
+  Dois elipsoides, um dentro do outro. O de fora é a copa e o de dentro é a coroa densa em
+  volta do tronco, um tom mais clara, e o motivo de ter os dois é o que o par faz com um
+  sensor, não com um desenho. Um único elipsoide é uma superfície lisa: uma câmera vê um só
+  gradiente nele e um sensor de profundidade vê um só casco limpo, que é o que uma laranjeira
+  numa fileira realmente parece, mas não o que parece madeira em pé. Dois elipsoides
+  aninhados de cores diferentes dão um interior à silhueta, e a mata não parece uma fileira
+  de laranjas gigantes.
 
-  This is what a mata is planted with, and a mata is scattered rather than
-  planted in rows, which is the other half of the difference: the worlds set
-  these at random positions and yaws inside a blob, never at a spacing.
+  É com isto que uma mata é plantada, e uma mata é espalhada e não plantada em fileiras, que
+  é a outra metade da diferença: os mundos põem estas árvores em posições e guinadas
+  aleatórias dentro de uma mancha, nunca num espaçamento.
 
-  The trunk is a third shape, 0.52 m of diameter with 2.59 m of clearance
-  under the canopy, so a machine passes under the leaves and beside the stems.
-  Nothing here collides either — see model://citrus_tree — so the mata is
-  something a machine drives through and a camera sees, which is the trade
-  these worlds are built on.
+  O tronco é uma terceira forma, com 0.52 m de diâmetro e 2.59 m de vão livre sob a copa,
+  então uma máquina passa sob as folhas e ao lado dos troncos. Nada aqui colide também (veja
+  `model://citrus_tree`), então a mata é algo que uma máquina atravessa e uma câmera vê, que
+  é a troca em que estes mundos se baseiam.
 
-  In the farm worlds this geometry is inlined rather than included: 120 trees
-  of mata as 120 models cost measurable milliseconds a step, and the same
-  shapes inside one model per quadrant do not. The numbers below and the ones
-  in SCENERY["forest_tree"] in scripts/generate_agriculture_worlds.py are the
-  same numbers, and this file is where they are explained.
+  Nos mundos de fazenda esta geometria é embutida e não incluída: 120 árvores de mata como
+  120 modelos custam milissegundos mensuráveis por passo, e as mesmas formas dentro de um
+  modelo por quadrante não custam. Os números abaixo e os de `SCENERY["forest_tree"]` em
+  `scripts/generate_agriculture_worlds.py` são os mesmos, e este arquivo é onde eles são
+  explicados.
 -->
 <sdf version="1.10">
   <model name="forest_tree">

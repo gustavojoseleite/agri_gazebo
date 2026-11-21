@@ -9,9 +9,9 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
-# agri_gz_bringup/vehicles.py as an importable module, so launch files here and
-# in other packages write `from agri_gz_bringup.vehicles import vehicle_nodes`
-# instead of pushing a share/ directory onto sys.path.
+# `agri_gz_bringup/vehicles.py` como módulo importável, para que os launch daqui e
+# de outros pacotes escrevam `from agri_gz_bringup.vehicles import vehicle_nodes`
+# em vez de empurrar um diretório de `share/` para o `sys.path`.
 ament_python_install_package(${PROJECT_NAME})
 
 ament_package()

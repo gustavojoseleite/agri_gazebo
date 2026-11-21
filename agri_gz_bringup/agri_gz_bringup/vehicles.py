@@ -1,15 +1,14 @@
-"""What bringing one vehicle up consists of, in one place.
+"""Tudo o que é preciso para subir um veículo, num só lugar.
 
-Imported by both launch files in this package — sim.launch.py, which brings up
-one machine, and convoy.launch.py, which brings up several — and by any
-project that composes its own scenario, because a vehicle is three nodes and a
-rule about topic names, and having that written twice is having two
-definitions that will disagree.
+Importado pelos dois `launch` deste pacote (`sim.launch.py`, que sobe uma
+máquina, e `convoy.launch.py`, que sobe várias) e por qualquer projeto que
+monte o próprio cenário, porque um veículo são três nós e uma regra de nomes
+de tópicos, e ter isso escrito duas vezes é ter duas definições que vão
+divergir.
 
-It is an installed Python module (ament_python_install_package in
-CMakeLists.txt), so every caller imports it the ordinary way:
-
-    from agri_gz_bringup.vehicles import vehicle_nodes
+É um módulo Python instalado (`ament_python_install_package` no
+`CMakeLists.txt`), então todo chamador o importa do jeito comum, com
+`from agri_gz_bringup.vehicles import vehicle_nodes`.
 """
 
 import tempfile
@@ -24,21 +23,21 @@ from launch_ros.parameter_descriptions import ParameterValue
 from vehicle_control.launch_nodes import control_config, control_nodes
 
 
-# Where a bridge config stops being plumbing and starts being sensors. Every
-# <robot>_gz/config/bridge.yaml carries this line, and it is why a follower
-# spawned without sensors also arrives without their topics.
+# Onde uma configuração de ponte deixa de ser infraestrutura e passa a ser sensores.
+# Todo `<robot>_gz/config/bridge.yaml` traz esta linha, e é por isso que um seguidor
+# criado sem sensores também chega sem os tópicos deles.
 SENSOR_MARKER = "# \u2500\u2500 Sensors "
-# And where the camera starts, below it: the camera has its own switch.
+# E onde a câmera começa, abaixo dela: a câmera tem a própria chave.
 CAMERA_MARKER = "# \u2500\u2500 Camera "
 
 
 def vehicle_files(robot):
-    """Where a vehicle's model and bridge template live, checked.
+    """Onde ficam o modelo e o modelo de ponte de um veículo, já conferidos.
 
-    The convention is the whole of the lookup: a package named <robot>_gz
-    ships urdf/<robot>.gz.xacro and config/bridge.yaml, and nothing else is
-    looked for. A missing file is raised here rather than left to fail later
-    as an empty robot_description, which is a much harder thing to read.
+    A convenção é toda a busca: um pacote chamado <robot>_gz traz
+    `urdf/<robot>.gz.xacro` e `config/bridge.yaml`, e nada mais é procurado.
+    O arquivo ausente gera o erro aqui, em vez de falhar adiante como um
+    `robot_description` vazio, que é bem mais difícil de ler.
     """
     share = Path(get_package_share_directory(f"{robot}_gz"))
     model = share / "urdf" / f"{robot}.gz.xacro"
@@ -50,12 +49,12 @@ def vehicle_files(robot):
 
 
 def spawn_height(robot):
-    """How high above the ground this vehicle is dropped, in metres.
+    """A que altura do chão o veículo é solto, em metros.
 
-    A property of the vehicle, not of the scenario that spawns it: a machine
-    on 1.5 m wheels needs more clearance than a pickup does. Each <robot>_gz
-    declares it in config/spawn.yaml (`z: 0.4`), so a new vehicle works in
-    every launch, convoy included, without anyone else knowing its size.
+    É uma propriedade do veículo, não do cenário que o cria: uma máquina com
+    rodas de 1,5 m precisa de mais folga que uma pickup. Cada <robot>_gz a
+    declara em `config/spawn.yaml` (`z: 0.4`), então um veículo novo funciona
+    em todo `launch`, comboio incluído, sem que ninguém mais saiba o tamanho dele.
     """
     path = Path(get_package_share_directory(f"{robot}_gz")) / "config" / "spawn.yaml"
     if not path.exists():
@@ -64,21 +63,21 @@ def spawn_height(robot):
 
 
 def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
-    """The nodes one machine needs, and the bridge config they share.
+    """Os nós de que uma máquina precisa e a configuração de ponte que eles dividem.
 
-    robot      which vehicle type: autonomous_tractor, pickup
-    name       its name in Gazebo, and the scope of its gz topics
-    namespace  the ROS namespace everything of its own lands under
-    pose       (x, y, z, yaw), as strings or numbers; z empty or None means
-               the vehicle's own spawn height (spawn_height above)
-    sensors    false leaves the camera, GNSS and IMU off this one
-    camera     false leaves the camera off and keeps GNSS and IMU; None
-               means the same as sensors. A convoy's followers localise
-               with GNSS and IMU and do not need the expensive camera.
+    robot      o tipo do veículo: autonomous_tractor, pickup
+    name       o nome dele no Gazebo e o escopo dos seus tópicos gz
+    namespace  o namespace ROS sob o qual cai tudo o que é dele
+    pose       (x, y, z, yaw), como strings ou números; z vazio ou None
+               significa a altura de criação do próprio veículo (`spawn_height`)
+    sensors    false deixa câmera, GNSS e IMU fora deste veículo
+    camera     false deixa a câmera fora e mantém GNSS e IMU; None
+               equivale a `sensors`. Os seguidores de um comboio se localizam
+               com GNSS e IMU e não precisam da câmera, que é cara.
 
-    The model name reaches the xacro because sensors take an absolute gz topic
-    — a relative one would be scoped under the world name as well, which the
-    bridge would then have to track — so the xacro has to build it.
+    O nome do modelo chega ao xacro porque os sensores usam um tópico gz
+    absoluto (um relativo ficaria sob o nome do mundo também, e a ponte teria
+    de acompanhá-lo), então o xacro precisa montá-lo.
     """
     model, bridge = vehicle_files(robot)
     camera = sensors if camera is None else (camera and sensors)
@@ -87,19 +86,20 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
         z = spawn_height(robot)
     x, y, z, yaw = (str(v) for v in (x, y, z, yaw))
 
-    # Namespaced vehicles keep their TF tree inside the namespace. Every
-    # vehicle uses the same frame names (base_link, camera_front_link…), so on
-    # one global /tf two machines would overwrite each other's transforms. The
-    # bridge already sends the gz odom -> base_footprint transform to the
-    # relative "tf"; robot_state_publisher is pointed at the same place here,
-    # and any node reading this vehicle's TF takes the same two remaps.
+    # Veículos com namespace mantêm a árvore de TF dentro dele. Todo veículo usa
+    # os mesmos nomes de frame (base_link, camera_front_link…), então num único
+    # /tf global duas máquinas sobrescreveriam as transformações uma da outra. A
+    # ponte já envia a transformação gz odom -> base_footprint para o "tf"
+    # relativo; o `robot_state_publisher` é apontado aqui para o mesmo lugar, e
+    # qualquer nó que leia o TF deste veículo usa os mesmos dois remapeamentos.
     tf_remaps = [("/tf", "tf"), ("/tf_static", "tf_static")] if namespace else []
 
-    # The vehicle is driven by vehicle_control's controllers, behind a
-    # controller manager that gz_ros2_control runs inside Gazebo; they publish
-    # odom, tf and joint_states and read cmd_vel through the limiter. The config
-    # is written per namespace: every gz_ros2_control in the one Gazebo process
-    # would otherwise read the same parameters. See vehicle_control.launch_nodes.
+    # O veículo é conduzido pelos controladores do `vehicle_control`, atrás de um
+    # `controller manager` que o `gz_ros2_control` executa dentro do Gazebo; eles
+    # publicam odom, tf e joint_states e leem cmd_vel pelo limitador. A
+    # configuração é escrita por namespace: todo `gz_ros2_control` no único
+    # processo do Gazebo leria, senão, os mesmos parâmetros. Ver
+    # `vehicle_control.launch_nodes`.
     controllers = control_config(robot, namespace)
 
     robot_description = ParameterValue(
@@ -114,16 +114,17 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
         value_type=str,
     )
 
-    # parameter_bridge takes a config file and no substitutions, so the file it
-    # gets is written here with {name} filled in. delete=False because the
-    # bridge opens it after the launch description has been built; it is a few
-    # hundred bytes in the system temp directory and the OS reclaims it.
+    # O `parameter_bridge` recebe um arquivo de configuração e nenhuma
+    # substituição, então o arquivo que ele recebe é escrito aqui com {name}
+    # preenchido. `delete=False` porque a ponte o abre depois que a descrição do
+    # `launch` foi montada; são algumas centenas de bytes no diretório temporário
+    # do sistema, e o SO os recupera.
     config = bridge.read_text()
     if not sensors:
-        # A bridge entry whose gz topic has no publisher still creates the ROS
-        # topic, and a topic that exists and never carries anything is worse
-        # than no topic: it is a thing to subscribe to and wait on forever. So
-        # the sensor half of the file goes with the sensors.
+        # Uma entrada da ponte cujo tópico gz não tem publicador ainda cria o
+        # tópico ROS, e um tópico que existe e nunca carrega nada é pior que
+        # nenhum: é algo em que se inscrever e esperar para sempre. Por isso a
+        # metade de sensores do arquivo sai junto com os sensores.
         config = config.split(SENSOR_MARKER)[0]
     elif not camera:
         config = config.split(CAMERA_MARKER)[0]
@@ -134,9 +135,9 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
         bridge_config = handle.name
 
     nodes = [
-        # use_sim_time everywhere: with the simulator driving the clock, a node
-        # left on wall time produces TF extrapolation errors that look like a
-        # broken robot rather than a clock problem.
+        # `use_sim_time` em todo lugar: com o simulador conduzindo o relógio, um nó
+        # deixado no tempo real produz erros de extrapolação de TF que parecem um
+        # robô quebrado, e não um problema de relógio.
         Node(
             package="robot_state_publisher",
             executable="robot_state_publisher",
@@ -150,10 +151,10 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
             output="screen",
         ),
 
-        # Spawns from the robot_description topic rather than a file path, so
-        # the simulator gets exactly the URDF robot_state_publisher is using.
-        # The topic is relative, and the namespace above is what it resolves
-        # under.
+        # Cria a partir do tópico `robot_description` em vez de um caminho de
+        # arquivo, de modo que o simulador recebe exatamente o URDF que o
+        # `robot_state_publisher` usa. O tópico é relativo, e o namespace acima
+        # é sob o qual ele se resolve.
         Node(
             package="ros_gz_sim",
             executable="create",

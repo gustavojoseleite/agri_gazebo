@@ -1,13 +1,12 @@
 <?xml version="1.0"?>
 <!--
-  Wooden field bin, 1.2 m square, of the kind dropped along an alley during
-  harvest and collected later.
+  `Bin` de campo de madeira, com 1.2 m de lado, do tipo largado ao longo de uma rua durante a
+  colheita e recolhido depois.
 
-  Worth having as its own model because it is the honest version of the
-  obstacle problem in a grove: unlike a tree it is not on any planting map, it
-  is exactly the height that hides under a canopy in a lidar scan, and next
-  week it will be somewhere else. Static, like everything else here, so it
-  stays where the run put it.
+  Vale ter como modelo próprio porque é a versão honesta do problema dos obstáculos num
+  pomar: ao contrário de uma árvore, não está em nenhum mapa de plantio, tem justamente a
+  altura que se esconde sob a copa numa varredura de `lidar`, e na semana que vem estará em
+  outro lugar. Estático, como todo o resto aqui, então fica onde a execução o pôs.
 -->
 <sdf version="1.10">
   <model name="harvest_bin">

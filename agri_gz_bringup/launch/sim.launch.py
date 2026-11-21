@@ -1,44 +1,44 @@
-"""Bring up any vehicle of this workspace in Gazebo Harmonic.
+"""Sobe qualquer veículo deste workspace no Gazebo Harmonic.
 
     ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor
     ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor gui:=false
     ros2 launch agri_gz_bringup sim.launch.py robot:=autonomous_tractor \
         world:=citrus_farm_60.sdf x:=-40.0 y:=6.0 yaw:=1.57
 
-One launch file for every vehicle, instead of a copy per vehicle that slowly
-drifts. What makes that possible is convention: a package named <robot>_gz is
-expected to ship
+Um só `launch` para todos os veículos, em vez de uma cópia por veículo que vai
+divergindo aos poucos. O que torna isso possível é a convenção: espera-se que um
+pacote chamado <robot>_gz traga
 
-    urdf/<robot>.gz.xacro     the model, with its Gazebo tags and plugins
-    config/bridge.yaml        the topic list, as a template (see below)
+    urdf/<robot>.gz.xacro     o modelo, com suas tags e plugins do Gazebo
+    config/bridge.yaml        a lista de tópicos, como modelo (ver abaixo)
 
-and nothing else is looked up. Each <robot>_gz still keeps a three-line
-sim.launch.py of its own so that `ros2 launch autonomous_tractor_gz
-sim.launch.py` works and tab-completes; it forwards to this one.
+e nada mais é procurado. Cada <robot>_gz ainda mantém um `sim.launch.py` próprio
+de três linhas, para que `ros2 launch autonomous_tractor_gz sim.launch.py`
+funcione e complete com tab; ele repassa para este.
 
-These come up together:
+Estes sobem juntos:
 
-  gz sim                  the simulator, running the world
-  robot_state_publisher   URDF + /joint_states -> the TF tree
-  create                  spawns the robot from the robot_description topic
-  parameter_bridge        connects the gz topics (clock, sensors) to ROS
-  spawner                 joint_state_broadcaster, ackermann_steering_controller
-                          and front_drive_controller, in the controller manager
-                          gz_ros2_control runs inside Gazebo
-  cmd_vel_limiter         cmd_vel -> limits -> the steering controller
+  gz sim                  o simulador, executando o mundo
+  robot_state_publisher   URDF + /joint_states -> a árvore de TF
+  create                  cria o robô a partir do tópico robot_description
+  parameter_bridge        liga os tópicos gz (relógio, sensores) ao ROS
+  spawner                 `joint_state_broadcaster`, `ackermann_steering_controller`
+                          e `front_drive_controller`, no `controller manager`
+                          que o `gz_ros2_control` executa dentro do Gazebo
+  cmd_vel_limiter         cmd_vel -> limites -> o controlador de direção
 
-Two names, two different jobs:
+Dois nomes, dois trabalhos diferentes:
 
-  name       the model's name inside Gazebo. Gazebo scopes a plugin's relative
-             topics under /model/<name>/, so this is what keeps two machines in
-             one world from both publishing on /odom. bridge.yaml is a template
-             precisely because it has to name those topics, and it cannot know
-             the name until launch time — {name} in it is substituted here.
-  namespace  the ROS-side prefix. Every node below runs in it, and the relative
-             topic names in bridge.yaml resolve under it. Empty by default, so
-             a single-vehicle session gets plain /cmd_vel and /odom.
+  name       o nome do modelo dentro do Gazebo. O Gazebo põe os tópicos relativos
+             de um plugin sob /model/<name>/, então é isto que impede duas
+             máquinas no mesmo mundo de publicarem ambas em /odom. O bridge.yaml é
+             um modelo justamente porque precisa nomear esses tópicos e não pode
+             saber o nome até a hora do `launch`: o {name} dele é substituído aqui.
+  namespace  o prefixo do lado ROS. Todo nó abaixo roda nele, e os nomes de
+             tópico relativos do bridge.yaml se resolvem sob ele. Vazio por
+             padrão, então uma sessão de um só veículo tem /cmd_vel e /odom simples.
 
-Nothing here starts rviz. Run it yourself from another shell when you want it.
+Nada aqui inicia o `rviz`. Execute-o você mesmo em outro terminal quando quiser.
 """
 
 from pathlib import Path
@@ -49,8 +49,8 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, Opaq
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
-# What it takes to bring one vehicle up lives in the vehicles module of this
-# package, because convoy.launch.py needs exactly the same thing five times over.
+# O que é preciso para subir um veículo fica no módulo `vehicles` deste pacote,
+# porque o convoy.launch.py precisa exatamente da mesma coisa cinco vezes.
 from agri_gz_bringup.vehicles import vehicle_nodes
 
 
@@ -60,16 +60,16 @@ def launch_setup(context, *args, **kwargs):
     gui = LaunchConfiguration("gui").perform(context).lower() == "true"
     namespace = LaunchConfiguration("namespace").perform(context)
 
-    # Defaulting here rather than in the DeclareLaunchArgument: the default is
-    # another argument's value, which a declaration cannot express.
+    # O padrão é definido aqui e não no `DeclareLaunchArgument`: o padrão é o valor
+    # de outro argumento, o que uma declaração não consegue expressar.
     name = LaunchConfiguration("name").perform(context) or robot
 
     world_path = Path(get_package_share_directory("agri_gz_worlds")) / "worlds" / world
     if not world_path.exists():
         raise FileNotFoundError(f"{world_path} does not exist")
 
-    # -r starts unpaused; -s runs the server only, which is how the same launch
-    # file serves both an interactive session and a headless CI run.
+    # -r inicia sem pausa; -s executa só o servidor, e é assim que o mesmo `launch`
+    # serve tanto a uma sessão interativa quanto a uma execução de CI sem janela.
     gz_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(str(
             Path(get_package_share_directory("ros_gz_sim")) / "launch" / "gz_sim.launch.py"
@@ -113,14 +113,14 @@ def generate_launch_description():
             default_value="",
             description="ROS namespace for every node and topic. Empty means none.",
         ),
-        # The default pose is the centre of the world, and that is a decision the
-        # worlds cooperate with rather than a placeholder. Every citrus world is
-        # levelled between x = +/-25 m and carries a carreador through the origin
-        # running along +x — check_network() refuses to write one whose origin
-        # road is more than 3 degrees off — so 0 0 with yaw 0 puts a vehicle in
-        # the middle of the property, on the road, pointing down it, in any of
-        # them. Measured after settling, in all five: (0, 0, 0) and level to
-        # 0.00 degrees in roll, pitch and yaw.
+        # A pose padrão é o centro do mundo, e isso é uma decisão com a qual os
+        # mundos cooperam, não um valor provisório. Todo mundo de citros é
+        # nivelado entre x = +/-25 m e tem um carreador pela origem seguindo +x
+        # (`check_network()` recusa gerar um cuja estrada na origem fique mais de
+        # 3 graus torta), então 0 0 com yaw 0 põe o veículo no meio da propriedade,
+        # sobre a estrada, apontado ao longo dela, em qualquer um deles. Medido
+        # após assentar, nos cinco: (0, 0, 0) e nivelado a 0,00 grau em rolagem,
+        # arfagem e guinada.
         DeclareLaunchArgument(
             "x", default_value="0.0",
             description="Spawn X, metres. 0 is the centre of the world.",

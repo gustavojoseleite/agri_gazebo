@@ -1,4 +1,4 @@
-# How high above the ground the pickup is dropped when it is spawned, in
-# metres. Read by agri_gz_bringup (vehicles.spawn_height) for every launch that
-# spawns this vehicle, convoy included. Clears the 0.38 m wheels.
+# A que altura do chão a pickup é solta ao ser criada, em metros. Lido pelo
+# agri_gz_bringup (`vehicles.spawn_height`) em todo `launch` que cria este
+# veículo, comboio incluído. Passa por cima das rodas de 0,38 m.
 z: 0.3

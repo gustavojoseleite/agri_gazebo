@@ -3,14 +3,16 @@
 <package format="3">
   <name>agri_gz_worlds</name>
   <version>0.1.0</version>
-  <description>Gazebo Harmonic worlds shared by every robot in this workspace.</description>
+  <description>
+    Mundos do `Gazebo Harmonic` compartilhados por todos os robôs deste workspace.
+  </description>
   <maintainer email="gujoseleite@gmail.com">Gustavo</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- A package of its own, and not a folder inside a vehicle package, so that a second
-       robot reuses the same worlds instead of copying them. -->
+  <!-- Um pacote próprio, e não uma pasta dentro do pacote de um veículo, para que um
+       segundo robô reuse os mesmos mundos em vez de copiá-los. -->
   <exec_depend>ros_gz_sim</exec_depend>
 
   <export>

@@ -1,27 +1,27 @@
 <?xml version="1.0"?>
 <!--
-  The Gazebo half of the sensor mounts declared in
-  vehicle_common_description/urdf/sensors.xacro.
+  A metade Gazebo das montagens de sensores declaradas em
+  `vehicle_common_description/urdf/sensors.xacro`.
 
-  Each macro attaches a <sensor> to a link that the description already created,
-  by name. That is the whole contract between the two halves: the description
-  owns where the sensor is, this file owns how it behaves — rate, noise, field
-  of view, and the topic it publishes on.
+  Cada macro prende um <sensor> a um `link` que a descrição já criou, pelo
+  nome. Esse é todo o contrato entre as duas metades: a descrição define onde
+  o sensor fica, e este arquivo define como ele se comporta: taxa, ruído,
+  campo de visão e o tópico em que publica.
 
-  <gz_frame_id> is not optional. Converting URDF to SDF collapses fixed joints,
-  so a lidar bolted to the arch would otherwise publish messages stamped
-  base_link, and every point cloud would land 2 m below where it was measured.
-  Naming the frame explicitly survives the collapse.
+  <gz_frame_id> não é opcional. Converter URDF em SDF funde as juntas fixas;
+  assim, um lidar fixado no arco publicaria mensagens com o frame `base_link`,
+  e toda nuvem de pontos cairia 2 m abaixo de onde foi medida. Nomear o frame
+  explicitamente sobrevive à fusão.
 
-  Topics are absolute and carry the model name. A relative sensor topic is
-  scoped under the world name as well as the model, so the bridge would have to
-  know which world is running to find it.
+  Os tópicos são absolutos e levam o nome do modelo. Um tópico de sensor
+  relativo fica sob o nome do mundo além do modelo, então a ponte precisaria
+  saber qual mundo está em execução para achá-lo.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <!-- 3D lidar. The defaults describe a 16-beam unit: the class of sensor that
-       sits on an agricultural machine, and enough vertical spread to see both
-       the ground ahead and the canopy beside it. -->
+  <!-- Lidar 3D. Os valores padrão descrevem uma unidade de 16 feixes: a classe de
+       sensor que equipa uma máquina agrícola, com abertura vertical suficiente
+       para ver o chão à frente e a copa ao lado. -->
   <xacro:macro name="gz_lidar_3d" params="link topic update_rate:=10
                                           h_samples:=900 v_samples:=16
                                           v_min:=-0.26 v_max:=0.26
@@ -53,8 +53,8 @@
             <max>${range_max}</max>
             <resolution>0.01</resolution>
           </range>
-          <!-- A lidar with no noise makes a mapping stack look better than it
-               is; 2 cm is about what these units actually do. -->
+          <!-- Um lidar sem ruído faz uma pilha de mapeamento parecer melhor do que
+               é; 2 cm é aproximadamente o que essas unidades realmente fazem. -->
           <noise>
             <type>gaussian</type>
             <mean>0.0</mean>
@@ -65,9 +65,9 @@
     </gazebo>
   </xacro:macro>
 
-  <!-- IMU. The noise figures are those of an industrial MEMS unit: good enough
-       to fuse, bad enough that dead reckoning on it alone drifts, which is the
-       behaviour worth reproducing. -->
+  <!-- `IMU`. Os valores de ruído são os de uma unidade MEMS industrial: bons o
+       bastante para fusão, ruins o bastante para que a odometria só com ela
+       derive, que é o comportamento que vale reproduzir. -->
   <xacro:macro name="gz_imu" params="link topic update_rate:=100">
     <gazebo reference="${link}">
       <sensor name="${link}" type="imu">
@@ -97,23 +97,23 @@
     </gazebo>
   </xacro:macro>
 
-  <!-- GNSS. Defaults to a metre of horizontal scatter — an uncorrected fix.
-       An RTK setup is the same sensor with stddev in centimetres, which is why
-       it is a parameter and not a constant. The world must carry
-       <spherical_coordinates>, or the sensor has no datum to convert to.
+  <!-- `GNSS`. O padrão é um metro de dispersão horizontal: uma posição sem
+       correção. Um arranjo `RTK` é o mesmo sensor com `stddev` em centímetros,
+       por isso é um parâmetro e não uma constante. O mundo precisa ter
+       <spherical_coordinates>, ou o sensor não tem referência para converter.
 
-       Both parameters are in METRES, and the horizontal one is divided by the
-       length of a degree of latitude before it reaches Gazebo. That division is
-       not cosmetic: gz-sensors adds the horizontal noise to the latitude and
-       longitude in DEGREES, so the obvious <stddev>1.0</stddev> is not a metre
-       of scatter but a degree of it — 111 km — and the symptom is a fix that
-       looks plausible, drifts continents, and is easy to mistake for a wrong
-       datum. Vertical noise is applied to the altitude, which is already in
-       metres, so it passes through untouched.
+       Os dois parâmetros estão em METROS, e o horizontal é dividido pelo
+       comprimento de um grau de latitude antes de chegar ao Gazebo. Essa
+       divisão não é estética: o `gz-sensors` soma o ruído horizontal à latitude
+       e à longitude em GRAUS, então o óbvio <stddev>1.0</stddev> não é um metro
+       de dispersão, e sim um grau, ou seja, 111 km. O sintoma é uma posição
+       que parece plausível, deriva por continentes e é fácil de confundir com
+       uma referência errada. O ruído vertical é aplicado à altitude, que já
+       está em metros, então passa sem alteração.
 
-       111320 m per degree is exact for latitude and 7% off for longitude at
-       this latitude; Gazebo applies one figure to both, so one figure is what
-       there is to give it. -->
+       111320 m por grau é exato para a latitude e 7% errado para a longitude
+       nesta latitude; o Gazebo aplica um só valor aos dois, então um só valor
+       é o que há para dar a ele. -->
   <xacro:property name="metres_per_degree" value="111320.0"/>
 
   <xacro:macro name="gz_navsat" params="link topic update_rate:=5
@@ -136,15 +136,15 @@
     </gazebo>
   </xacro:macro>
 
-  <!-- Camera. gz_frame_id is the OPTICAL frame, not the mount: an image whose
-       header says camera_link is 90 degrees out from what every vision node
-       assumes, and the error is silent.
+  <!-- Câmera. O `gz_frame_id` é o frame ÓPTICO, não o da montagem: uma imagem
+       cujo cabeçalho diz `camera_link` fica 90 graus fora do que todo nó de
+       visão assume, e o erro é silencioso.
 
-       The calibration is not published on the topic given here. Gazebo puts it
-       on the image topic's parent plus /camera_info, so pass something like
-       .../camera_front/image and the pair comes out as .../camera_front/image
-       and .../camera_front/camera_info. Pass .../camera_front and the info
-       lands beside the model instead, where the next camera overwrites it. -->
+       A calibração não é publicada no tópico informado aqui. O Gazebo a coloca
+       no pai do tópico da imagem mais /camera_info; então, passando algo como
+       .../camera_front/image, o par sai como .../camera_front/image e
+       .../camera_front/camera_info. Passando .../camera_front, o `info` cai ao
+       lado do modelo, onde a próxima câmera o sobrescreve. -->
   <xacro:macro name="gz_camera" params="link optical_frame topic update_rate:=15
                                         width:=1280 height:=720 hfov:=1.20
                                         near:=0.2 far:=200.0">
@@ -176,8 +176,8 @@
     </gazebo>
   </xacro:macro>
 
-  <!-- Not a sensor, but the other thing every vehicle needs and no description
-       may contain: what its tyres do against the ground. -->
+  <!-- Não é um sensor, mas é a outra coisa que todo veículo precisa e que
+       nenhuma descrição pode conter: o que os pneus fazem contra o chão. -->
   <xacro:macro name="gz_wheel_surface" params="link mu:=1.4 mu2:=1.2 kp:=1e7 kd:=100.0">
     <gazebo reference="${link}">
       <mu1>${mu}</mu1>

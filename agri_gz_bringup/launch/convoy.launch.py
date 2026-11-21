@@ -1,22 +1,21 @@
-"""A line of machines on the carreador: one leader in front, followers behind.
+"""Uma fila de máquinas no carreador: um líder à frente, seguidores atrás.
 
     ros2 launch agri_gz_bringup convoy.launch.py
     ros2 launch agri_gz_bringup convoy.launch.py spacing:=15.0 followers:=2
     ros2 launch agri_gz_bringup convoy.launch.py world:=citrus_farm_60.sdf gui:=false
     ros2 launch agri_gz_bringup convoy.launch.py leader:=autonomous_tractor follower:=pickup
 
-Any vehicle can lead and any vehicle can follow: leader:= and follower:= name
-a vehicle type, which is found by the same <robot>_gz convention as
-sim.launch.py, and each one is dropped from its own spawn height. Nothing here
-knows what a tractor or a pickup is. This file only lines machines up; what
-they do next (follow the leader, drive a route) belongs to the project that
-launched them.
+Qualquer veículo pode liderar e qualquer veículo pode seguir: leader:= e
+follower:= nomeiam um tipo de veículo, achado pela mesma convenção <robot>_gz do
+sim.launch.py, e cada um é solto na própria altura de criação. Nada aqui sabe o
+que é um trator ou uma pickup. Este arquivo só alinha as máquinas; o que elas
+fazem depois (seguir o líder, percorrer uma rota) cabe ao projeto que as lançou.
 
-By default the leader is a **pickup** and the followers are **autonomous
-tractors**, four of them, nose to tail down the main carreador at ten metres.
-The leader sits on the world origin facing east, which is where every world in
-agri_gz_worlds puts a vehicle — level ground, on the road, pointing along it — and
-each follower is one spacing further back:
+Por padrão o líder é uma **pickup** e os seguidores são **tratores autônomos**,
+quatro, em fila pelo carreador principal a dez metros um do outro. O líder fica
+na origem do mundo voltado para leste, que é onde todo mundo do agri_gz_worlds
+põe um veículo (terreno nivelado, sobre a estrada, apontado ao longo dela), e
+cada seguidor fica um espaçamento mais atrás:
 
     pickup       ( 0, 0)      /pickup/cmd_vel
     tractor_1    (-10, 0)     /tractor_1/cmd_vel
@@ -24,22 +23,22 @@ each follower is one spacing further back:
     tractor_3    (-30, 0)
     tractor_4    (-40, 0)
 
-Ten metres between base_links, which on a 3.6 m tractor is 6.4 m of daylight
-between one and the next — close enough to read as a convoy, far enough that
-nobody rear-ends anybody while the physics settles.
+Dez metros entre os `base_link`, o que num trator de 3,6 m dá 6,4 m de vão entre
+um e o próximo: perto o bastante para parecer um comboio, longe o bastante para
+que ninguém bata na traseira de ninguém enquanto a física assenta.
 
-**Each machine is its own ROS namespace**, and that is not tidiness: the
-plugins scope their gz topics under /model/<name>/, so five vehicles would
-otherwise all arrive on /cmd_vel and /odom and fight. Driving the third
-tractor is `ros2 run vehicle_control teleop_key --ros-args -r __ns:=/tractor_3`.
-Followers are named <follower_prefix>_<n>, tractor_1 and on by default.
+**Cada máquina é o próprio namespace ROS**, e isso não é capricho: os plugins
+põem seus tópicos gz sob /model/<name>/, então cinco veículos chegariam todos em
+/cmd_vel e /odom e brigariam. Conduzir o terceiro trator é
+`ros2 run vehicle_control teleop_key --ros-args -r __ns:=/tractor_3`.
+Os seguidores se chamam <follower_prefix>_<n>, tractor_1 em diante por padrão.
 
-**Only the leader carries a camera.** A camera is the most expensive thing in
-any of these worlds -- measured at 16.8 of the 62.1 wall-seconds it took to
-simulate 20 s of citrus_farm_60 -- so the followers are spawned with
-camera:=false. They keep GNSS and IMU, which are cheap and what a follower
-localises with. followers_camera:=true gives them cameras too, at the price
-above; followers_sensors:=false takes GNSS and IMU away as well.
+**Só o líder leva câmera.** A câmera é a coisa mais cara em qualquer um destes
+mundos (medido: 16,8 dos 62,1 segundos de relógio que levou para simular 20 s
+do citrus_farm_60), então os seguidores são criados com camera:=false. Eles
+mantêm GNSS e IMU, que são baratos e com os quais um seguidor se localiza.
+followers_camera:=true dá câmeras a eles também, pelo preço acima;
+followers_sensors:=false tira também o GNSS e a IMU.
 """
 
 import math
@@ -82,12 +81,12 @@ def launch_setup(context, *args, **kwargs):
         }.items(),
     )
 
-    # The line runs backwards along the heading, whatever the heading is: turn
-    # the convoy with yaw:= and it stays a convoy instead of becoming a row.
+    # A fila corre para trás ao longo do rumo, seja qual for o rumo: gire o
+    # comboio com yaw:= e ele continua um comboio em vez de virar uma fileira.
     back_x, back_y = -math.cos(yaw), -math.sin(yaw)
 
-    # No spawn height here: each vehicle brings its own (spawn.yaml in its
-    # <robot>_gz package), which is what lets any type take either role.
+    # Sem altura de criação aqui: cada veículo traz a sua (`spawn.yaml` no seu
+    # pacote <robot>_gz), o que permite a qualquer tipo assumir qualquer papel.
     line = [(leader, leader_name)]
     line += [(follower, f"{prefix}_{n + 1}") for n in range(followers)]
 

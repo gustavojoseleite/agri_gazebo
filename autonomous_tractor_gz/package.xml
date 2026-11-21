@@ -3,15 +3,17 @@
 <package format="3">
   <name>autonomous_tractor_gz</name>
   <version>0.1.0</version>
-  <description>Gazebo Harmonic bringup for the autonomous tractor: gz plugins, sensors and ros_gz bridge.</description>
+  <description>
+    Inicialização do trator autônomo no Gazebo Harmonic: plugins `gz`, sensores e a ponte
+    `ros_gz`.
+  </description>
   <maintainer email="gujoseleite@gmail.com">Gustavo</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- The dependency that defines the architecture: this package knows about
-       autonomous_tractor_description, and the description knows nothing about
-       this one. -->
+  <!-- A dependência que define a arquitetura: este pacote conhece o
+       autonomous_tractor_description, e a descrição não sabe nada sobre este. -->
   <exec_depend>autonomous_tractor_description</exec_depend>
 
   <exec_depend>agri_gz_bringup</exec_depend>

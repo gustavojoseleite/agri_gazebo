@@ -1,18 +1,18 @@
-"""Bring up the autonomous tractor in Gazebo Harmonic.
+"""Sobe o trator autônomo no Gazebo Harmonic.
 
     ros2 launch autonomous_tractor_gz sim.launch.py
     ros2 launch autonomous_tractor_gz sim.launch.py gui:=false
     ros2 launch autonomous_tractor_gz sim.launch.py world:=citrus_farm_60.sdf
 
-A wrapper, on purpose. All of the work is in agri_gz_bringup, which is shared by
-every vehicle; this file exists so the tractor can be launched by its own
-package name. Its spawn height is not here but in config/spawn.yaml, where
-every launch that spawns it (convoy included) reads it.
+Um invólucro, de propósito. Todo o trabalho está no agri_gz_bringup, que é
+compartilhado por todos os veículos; este arquivo existe para que o trator possa
+ser lançado pelo nome do próprio pacote. A altura de criação dele não está aqui,
+mas em config/spawn.yaml, de onde todo `launch` que o cria (comboio incluído) a lê.
 
-An included launch does not inherit the command line, so each argument is
-declared here and forwarded explicitly. The list is short and it is the price
-of `ros2 launch autonomous_tractor_gz sim.launch.py world:=...` working the way
-anyone would expect it to.
+Um `launch` incluído não herda a linha de comando, então cada argumento é
+declarado aqui e repassado explicitamente. A lista é curta e é o preço de
+`ros2 launch autonomous_tractor_gz sim.launch.py world:=...` funcionar como
+qualquer um esperaria.
 """
 
 from launch import LaunchDescription

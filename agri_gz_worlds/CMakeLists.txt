@@ -8,12 +8,12 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
-# Three entries, three different lookups:
-#   share                   -> resolves model:// and package:// URIs
-#   share/agri_gz_worlds/worlds  -> lets `gz sim citrus_farm_90.sdf` find the world
-#                              by bare filename, from any directory
-#   share/agri_gz_worlds/models  -> resolves model://citrus_tree and the rest of the
-#                              model library
+# Três entradas, três buscas diferentes:
+#   share                        -> resolve as URIs `model://` e `package://`
+#   share/agri_gz_worlds/worlds  -> deixa `gz sim citrus_farm_90.sdf` achar o mundo
+#                                   só pelo nome do arquivo, de qualquer diretório
+#   share/agri_gz_worlds/models  -> resolve `model://citrus_tree` e o resto da
+#                                   biblioteca de modelos
 ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/hooks/${PROJECT_NAME}.dsv.in")
 
 ament_package()
