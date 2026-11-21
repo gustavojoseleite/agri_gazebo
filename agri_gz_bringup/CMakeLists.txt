@@ -24,6 +24,8 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_tags test/test_tags.py)
   ament_add_pytest_test(test_distortion test/test_distortion.py)
   ament_add_pytest_test(test_vehicles test/test_vehicles.py)
+  ament_add_pytest_test(test_clock test/test_clock.py)
+  ament_add_pytest_test(test_distortion_fast test/test_distortion_fast.py)
 endif()
 
 ament_package()

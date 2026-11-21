@@ -49,6 +49,7 @@ from launch.actions import (DeclareLaunchArgument, IncludeLaunchDescription, Opa
                             SetEnvironmentVariable)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 
 from agri_gz_bringup.vehicles import convoy_line, egl_actions, gz_args, vehicle_nodes
 
@@ -97,14 +98,25 @@ def launch_setup(context, *args, **kwargs):
     line = convoy_line(arg("leader"), arg("follower"), int(arg("followers")),
                        arg("follower_prefix"), arg("leader_name"))
 
-    nodes = [*egl_actions(gui), *shared_memory_actions(), gz_sim]
+    # O relógio vem de uma ponte só, e não de uma por veículo: com cinco pontes, todo nó
+    # receberia cinco cópias de cada passo de física.
+    clock_bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="bridge_clock",
+        arguments=["/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock"],
+        parameters=[{"use_sim_time": True}],
+        output="screen",
+    )
+
+    nodes = [*egl_actions(gui), *shared_memory_actions(), gz_sim, clock_bridge]
     for n, vehicle in enumerate(line):
         nodes += vehicle_nodes(
             vehicle["robot"], vehicle["name"], f"/{vehicle['name']}",
             (x0 + back_x * spacing * n, y0 + back_y * spacing * n, None, yaw),
             tag_id=vehicle["tag_id"], tag_family=tag_family, tag_size=tag_size,
             camera=vehicle["camera"], camera_mount=camera_mount,
-            sensor_profile=sensor_profile,
+            sensor_profile=sensor_profile, clock=False,
         )
     return nodes
 

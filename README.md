@@ -112,6 +112,9 @@ aceitam qualquer tipo de veículo que tenha um pacote `<veiculo>_gz`; os seguido
 fazem depois é do projeto que o lançou. Dez metros entre `base_link`s são 6,4 m de espaço livre
 entre um trator de 3,6 m e o seguinte.
 
+Um só `/clock` serve o comboio inteiro: o `convoy.launch.py` sobe uma única ponte, `bridge_clock`,
+e as pontes de cada veículo ficam sem o relógio (`clock=False`).
+
 Duas coisas fazem cinco veículos num mundo funcionarem, e as duas valem ser conhecidas antes de
 criar um sexto:
 
@@ -139,6 +142,10 @@ Argumentos do comboio além dos de posição:
 
 Cada câmera sobe com um nó `camera_distortion` no namespace do veículo, que publica
 `<veiculo>/camera_front/image_raw` (ou as das duas câmeras na montagem `dual`).
+
+O argumento `camera_far` do xacro do trator (padrão `60.0`, em metros) é o plano de corte das
+câmeras: o que está além dele não é renderizado, o que poupa a preparação das cenas na CPU (menos
+objetos para percorrer e desenhar) em mundos grandes.
 
 A **verdade de solo** de cada veículo, líder inclusive, chega em
 `/ground_truth/<nome>/pose` (`geometry_msgs/msg/PoseStamped`), por exemplo
@@ -863,10 +870,18 @@ divide o tempo simulado do `/clock` pelo tempo de relógio, contados a partir do
 ros2 run agri_gz_bringup measure_rtf.py --seconds 60
 ```
 
-Medida em 2026-11-21, no mundo `citrus_farm.sdf`, na GPU NVIDIA GeForce RTX 3060 (driver
-595.99.02), com a renderização sem tela pelo EGL, sem `rectify_node` nem `apriltag_node`:
+Medida em 2026-11-21, no mundo `citrus_farm.sdf`, no processador Intel Core i5-9600K (6 núcleos)
+e na GPU NVIDIA GeForce RTX 3060 (driver 595.99.02), com a renderização sem tela pelo EGL, sem
+`rectify_node` nem `apriltag_node`. O limite da medida é a CPU:
 
-- fator de tempo real: 0,54 (32,67 s simulados em 60,00 s de relógio)
+- antes das mudanças de desempenho: 0,54 e 0,49 (32,67 s simulados em 60,00 s de relógio, na
+  primeira)
+- depois, em três execuções de 60 s: 0,785 (47,12 s simulados), 0,854 (51,27 s) e 0,704
+  (42,23 s); média 0,78
+
+Entre as duas medidas mudaram três coisas: um só `/clock` para o comboio (em vez de uma ponte de
+relógio por veículo), a distorção da câmera em ponto fixo no `camera_distortion` e o corte das
+câmeras em 60 m (`camera_far`). O resto do comportamento ficou igual.
 
 ## Adicionando um veículo
 
