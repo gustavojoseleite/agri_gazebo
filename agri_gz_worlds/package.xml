@@ -12,7 +12,7 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <!-- Um pacote próprio, e não uma pasta dentro do pacote de um veículo, para que um
-       segundo robô reuse os mesmos mundos em vez de copiá-los. -->
+       segundo robô reúse os mesmos mundos em vez de copiá-los. -->
   <exec_depend>ros_gz_sim</exec_depend>
 
   <export>
