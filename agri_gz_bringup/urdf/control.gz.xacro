@@ -1,15 +1,16 @@
 <?xml version="1.0"?>
 <!--
-  How a vehicle in Gazebo is driven: through ros2_control. The vehicle's own
-  <ros2_control> block, from vehicle_common_description, gets the Gazebo
-  hardware plugin, and gz_ros2_control runs a controller manager for it inside
-  the simulator, in the vehicle's namespace. The controllers and their parameters are
-  vehicle_control's, the same as on the mock and on the machine.
+  Como um veículo é conduzido no Gazebo: pelo `ros2_control`. O bloco
+  <ros2_control> do próprio veículo, vindo de `vehicle_common_description`,
+  recebe o plugin de hardware do Gazebo, e o `gz_ros2_control` executa dentro
+  do simulador um `controller manager` para ele, no namespace do veículo. Os
+  controladores e seus parâmetros são os do `vehicle_control`, os mesmos do
+  `mock` e da máquina.
 
-  The including <vehicle>.gz.xacro declares the args this file reads:
-    namespace    the vehicle's ROS namespace, empty for none
-    controllers  the parameters file: vehicle_control/config/<robot>.yaml,
-                 or the per-namespace copy vehicles.py writes from it
+  O <veículo>.gz.xacro que inclui este arquivo declara os args que ele lê:
+    namespace    o namespace ROS do veículo, vazio se não houver
+    controllers  o arquivo de parâmetros: `vehicle_control/config/<robot>.yaml`
+                 ou a cópia por namespace que o `vehicles.py` gera a partir dele
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 

@@ -1,84 +1,87 @@
 <?xml version="1.0"?>
 <!--
-  The autonomous tractor, as Gazebo needs to see it.
+  O trator autônomo, como o Gazebo precisa vê-lo.
 
-  This file includes the pure description and adds everything simulation-only on
-  top: the drivetrain, tyre friction, the sensors' behaviour. Nothing here leaks
-  back into autonomous_tractor_description, which is what keeps that package
-  usable with rviz alone, MoveIt or the real machine.
+  Este arquivo inclui a descrição pura e acrescenta por cima tudo o que é só de
+  simulação: o conjunto de tração, o atrito dos pneus e o comportamento dos
+  sensores. Nada daqui vaza de volta para o autonomous_tractor_description, o que
+  mantém aquele pacote utilizável só com o `rviz`, o `MoveIt` ou a máquina real.
 
-  Expand it to inspect what actually gets spawned:
+  Expanda-o para inspecionar o que de fato é criado:
     xacro autonomous_tractor.gz.xacro name:=autonomous_tractor
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="autonomous_tractor">
 
-  <!-- The model's name in Gazebo, passed by agri_gz_bringup/launch/sim.launch.py.
-       Sensor topics are built from it so that two machines in one world do not
-       publish over each other. -->
+  <!-- O nome do modelo no Gazebo, passado pelo
+       agri_gz_bringup/launch/sim.launch.py. Os tópicos dos sensores são
+       montados a partir dele para que duas máquinas no mesmo mundo não
+       publiquem uma por cima da outra. -->
   <xacro:arg name="name" default="autonomous_tractor"/>
   <xacro:property name="ns" value="/model/$(arg name)"/>
 
-  <!-- Whether this vehicle carries any sensors at all: IMU, GNSS, camera. -->
+  <!-- Se este veículo leva algum sensor: IMU, GNSS, câmera. -->
   <xacro:arg name="sensors" default="true"/>
 
-  <!-- The camera on its own switch, because it is the one that costs: a
-       convoy's followers carry GNSS and IMU (cheap, and what they localise
-       with) but not a camera. Defaults to whatever sensors:= says. -->
+  <!-- A câmera em chave própria, porque é a que custa: os seguidores de um
+       comboio levam GNSS e IMU (baratos, e com os quais se localizam), mas não
+       câmera. O padrão é o que sensors:= disser. -->
   <xacro:arg name="camera" default="$(arg sensors)"/>
 
-  <!-- Read by agri_gz_bringup/urdf/control.gz.xacro: the vehicle's ROS
-       namespace, and the controllers' parameters (vehicles.py passes a copy
-       narrowed to that namespace). -->
+  <!-- Lidos pelo agri_gz_bringup/urdf/control.gz.xacro: o namespace ROS do
+       veículo e os parâmetros dos controladores (o vehicles.py passa uma cópia
+       restrita a esse namespace). -->
   <xacro:arg name="namespace" default=""/>
   <xacro:arg name="controllers" default="$(find vehicle_control)/config/autonomous_tractor.yaml"/>
 
-  <!-- Brings in the links, joints and properties from params.xacro. The
-       controllers carry their own copy of the geometry, and
-       vehicle_control/test/test_configs.py fails if it stops matching. -->
+  <!-- Traz os `links`, as juntas e as propriedades do params.xacro. Os
+       controladores levam a própria cópia da geometria, e
+       vehicle_control/test/test_configs.py falha se ela deixar de casar. -->
   <xacro:include filename="$(find autonomous_tractor_description)/urdf/autonomous_tractor.urdf.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/sensors.gz.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/control.gz.xacro"/>
 
-  <!-- ── Tyres ───────────────────────────────────────────────────────────── -->
+  <!-- ── Pneus ───────────────────────────────────────────────────────────── -->
 
-  <!-- Agricultural lugs on soil. Left at the default the wheels slip and a 4 t
-       machine barely moves, which reads like a broken controller. mu2 lower
-       than mu1 is the lateral grip a tyre actually has, and it is what lets the
-       tractor scrub round a headland turn instead of running on rails. -->
+  <!-- Garras agrícolas no solo. No valor padrão as rodas patinam e uma máquina de
+       4 t mal se move, o que parece um controlador quebrado. `mu2` menor que
+       `mu1` é a aderência lateral que um pneu realmente tem, e é o que deixa o
+       trator derrapar numa curva de cabeceira em vez de andar sobre trilhos. -->
   <xacro:gz_wheel_surface link="left_rear_wheel"/>
   <xacro:gz_wheel_surface link="right_rear_wheel"/>
   <xacro:gz_wheel_surface link="left_front_wheel"/>
   <xacro:gz_wheel_surface link="right_front_wheel"/>
 
-  <!-- No <material> override here. Gazebo does not support Ogre material
-       scripts (it warns and substitutes one of its own), and the URDF's own
-       colours are the prop's, which is the whole point. -->
+  <!-- Sem sobrescrita de <material> aqui. O Gazebo não suporta scripts de
+       material do Ogre (avisa e usa um próprio), e as cores do próprio URDF são
+       as do objeto, que é o objetivo. -->
 
-  <!-- ── Drivetrain ──────────────────────────────────────────────────────── -->
+  <!-- ── Tração ──────────────────────────────────────────────────────── -->
 
-  <!-- ros2_control, the same controllers and config as on the mock and the
-       machine (vehicle_control/config/autonomous_tractor.yaml): Ackermann
-       steering on the front axle, drive on all four wheels, the rear pair from
-       the steering controller and the front pair from front_drive_controller. Only the
-       hardware plugin is Gazebo's; see agri_gz_bringup/urdf/control.gz.xacro.
-       The front wheels are 0.45 m against 0.75 m at the rear;
-       front_drive_controller has both radii and turns each at its ground speed.
+  <!-- `ros2_control`, os mesmos controladores e a mesma configuração do `mock` e
+       da máquina (vehicle_control/config/autonomous_tractor.yaml): direção
+       Ackermann no eixo dianteiro, tração nas quatro rodas, o par traseiro vindo
+       do controlador de direção e o par dianteiro do `front_drive_controller`.
+       Só o plugin de hardware é do Gazebo; ver agri_gz_bringup/urdf/control.gz.xacro.
+       As rodas dianteiras têm 0,45 m contra 0,75 m atrás; o
+       `front_drive_controller` tem os dois raios e gira cada uma à sua
+       velocidade no chão.
        -->
   <xacro:gz_ros2_control name="autonomous_tractor"/>
 
-  <!-- ── Sensors ─────────────────────────────────────────────────────────── -->
+  <!-- ── Sensores ─────────────────────────────────────────────────────────── -->
 
-  <!-- Camera and GNSS only. The lidar was measured, in citrus_farm_60, at 30.4
-       of the 62.1 wall-seconds it took to simulate 20 s — half the budget for
-       one sensor, because a 360 degree scan walks every visual in the world
-       ten times a second. agri_gz_bringup still ships the gz_lidar_3d macro. -->
+  <!-- Só câmera e GNSS (e IMU). O lidar foi medido, no citrus_farm_60, em 30,4
+       dos 62,1 segundos de relógio que levou para simular 20 s: metade do
+       orçamento para um sensor, porque uma varredura de 360 graus percorre todo
+       visual do mundo dez vezes por segundo. O agri_gz_bringup ainda traz a
+       macro `gz_lidar_3d`. -->
   <xacro:if value="$(arg sensors)">
     <xacro:gz_imu link="imu_link" topic="${ns}/imu"/>
     <xacro:gz_navsat link="gnss_link" topic="${ns}/navsat"/>
-    <!-- .../camera_front/image, not .../camera_front: Gazebo derives the
-         camera info topic from the image topic's PARENT, so the shorter name
-         would put the info on /model/<name>/camera_info, where a second
-         camera would overwrite it. -->
+    <!-- .../camera_front/image, e não .../camera_front: o Gazebo deriva o tópico
+         de `camera info` do PAI do tópico da imagem, então o nome mais curto
+         poria o `info` em /model/<name>/camera_info, onde uma segunda câmera o
+         sobrescreveria. -->
     <xacro:if value="$(arg camera)">
       <xacro:gz_camera link="camera_front_link" optical_frame="camera_front_optical_frame"
                        topic="${ns}/camera_front/image"/>

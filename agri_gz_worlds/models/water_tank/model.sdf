@@ -1,11 +1,10 @@
 <?xml version="1.0"?>
 <!--
-  Irrigation tank, 3 m across and 2.5 m tall, standing on a concrete pad.
+  Caixa-d'água de irrigação, com 3 m de largura e 2.5 m de altura, sobre uma base de concreto.
 
-  Every field here has exactly one, and always in the headland. That is what
-  makes it useful beyond decoration: a single, tall, isolated object of known
-  size is the landmark a localisation stack can lock onto when every row looks
-  like every other row.
+  Cada campo tem exatamente uma, e sempre na cabeceira. Isso a torna útil além da decoração:
+  um objeto único, alto e isolado, de tamanho conhecido, é o marco em que uma pilha de
+  localização pode se firmar quando toda fileira parece igual às outras.
 -->
 <sdf version="1.10">
   <model name="water_tank">

@@ -1,31 +1,31 @@
 <?xml version="1.0"?>
 <!--
-  One grown citrus as a trunk and a single ellipsoid: 3.12 m across, 2.76 m to
-  the top, with 0.44 m of trunk showing under the crown.
+  Uma laranjeira adulta como tronco e um único elipsoide: 3.12 m de largura, 2.76 m até o
+  topo, com 0.44 m de tronco à mostra sob a copa.
 
-  This is the crown these worlds were first planted with, kept because it is
-  still the right answer to a fair number of questions. A row of ellipsoids and
-  a row of meshes stand on the same ground, throw the same shadow and stop a
-  lidar ray at about the same distance; what they do not do is look alike to a
-  camera. So a block planted round is the control: anything a perception stack
-  does differently between a round talhao and a mesh one came from the foliage
-  and not from the geometry of the field.
+  Esta é a copa com que estes mundos foram plantados no início, mantida porque ainda é a
+  resposta certa para várias perguntas. Uma fileira de elipsoides e uma fileira de malhas
+  ficam no mesmo chão, projetam a mesma sombra e param um raio de `lidar` quase à mesma
+  distância; o que elas não fazem é parecer iguais para uma câmera. Por isso um bloco
+  plantado com copas redondas é o controle: tudo o que uma pilha de percepção faz de
+  diferente entre um `talhao` redondo e um de malha veio da folhagem e não da geometria do
+  campo.
 
-  The ellipsoid is the sphere model://citrus_tree's mesh is pushed out of,
-  averaged round in plan — which is why the mesh measures 3.95 m across and
-  this measures 3.12 m. Lobes stand proud of the sphere they came from; a
-  smooth surface has nothing to stand proud with, and pretending otherwise by
-  inflating the ellipsoid would make the control the odd one out.
+  O elipsoide é a esfera de onde a malha de `model://citrus_tree` é tirada, com a média
+  tomada em planta, e é por isso que a malha mede 3.95 m de largura e este mede 3.12 m. Os
+  lóbulos se projetam além da esfera de onde saíram; uma superfície lisa não tem com o que
+  se projetar, e fingir o contrário inflando o elipsoide faria do controle o ponto fora da
+  curva.
 
-  It has a trunk, and the first cut of this model did not. A crown resting on
-  the ground is what these worlds used to draw, and it reads as a shrub or as a
-  ball someone left in the field; a citrus of this age carries its skirt about
-  half a metre up. That trunk is a second visual and therefore a second entity,
-  which doubles what a round talhao costs — the reason to accept it is that a
-  tree without a trunk is not a control for anything, it is a different plant.
+  Ele tem tronco, e a primeira versão deste modelo não tinha. Uma copa apoiada no chão é o
+  que estes mundos desenhavam antes, e parece um arbusto ou uma bola esquecida no campo; uma
+  laranjeira dessa idade carrega a saia a cerca de meio metro do chão. Esse tronco é um
+  segundo visual e, portanto, uma segunda entidade, o que dobra o custo de um `talhao`
+  redondo; o motivo para aceitar é que uma árvore sem tronco não é controle de nada, é outra
+  planta.
 
-  Nothing collides. See model://citrus_tree for why that is true of all four
-  trees.
+  Nada colide. Veja `model://citrus_tree` para saber por que isso vale para as quatro
+  árvores.
 -->
 <sdf version="1.10">
   <model name="citrus_round">

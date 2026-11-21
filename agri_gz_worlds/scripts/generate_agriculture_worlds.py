@@ -1,32 +1,30 @@
 #!/usr/bin/env python3
-"""Generate the three citrus farm worlds in worlds/.
+"""Gera os três mundos de fazenda de citros em worlds/.
 
-    python3 scripts/generate_agriculture_worlds.py            # rewrite them in place
-    python3 scripts/generate_agriculture_worlds.py --out /tmp  # try a change first
+    python3 scripts/generate_agriculture_worlds.py            # reescreve no lugar
+    python3 scripts/generate_agriculture_worlds.py --out /tmp  # para testar uma mudança antes
 
-The worlds are committed and the build never runs this script: Gazebo reads the
-SDF, not the generator. It exists because the interesting part of a field is a
-loop -- four thousand trees cut to whatever shape the roads leave over -- and
-because the numbers worth editing are the agronomic ones at the top of each
-builder (row spacing, lane width, bend radius), not the poses they expand
-into.
+Os mundos são versionados e o build nunca roda este script: o Gazebo lê o SDF, não o gerador.
+Ele existe porque a parte interessante de um campo é um laço -- quatro mil árvores cortadas no
+formato que as estradas deixam -- e porque os números que vale editar são os agronômicos no topo
+de cada construtor (espaçamento de fileira, largura de carreador, raio de curva), e não as
+poses em que eles se expandem.
 
-One property, three road networks: citrus_farm_90, _60 and _30 share their
-ground, their planting and their mata, and differ only in the angle every bend
-on them turns.
+Uma propriedade, três redes de estradas: citrus_farm_90, _60 e _30 compartilham o terreno, o
+plantio e a mata, e diferem só no ângulo que cada curva faz.
 
-Conventions shared by the three worlds, and worth keeping if you add a fourth:
+Convenções comuns aos três mundos, que vale manter se você criar um quarto:
 
-  +X runs along the rows, +Y across them, +Z up (SDF's usual frame).
+  +X corre ao longo das fileiras, +Y através delas, +Z para cima (o referencial usual do SDF).
 
-  The world origin sits on a carreador, on flat ground, at z = 0. That is what
-  lets `sim.launch.py` spawn the rover at z = 0.15 in any of these worlds
-  without a per-world spawn pose.
+  A origem do mundo fica num carreador, em terreno plano, em z = 0. É isso que permite ao
+  `sim.launch.py` criar o rover em z = 0,15 em qualquer um destes mundos sem uma pose de
+  criação por mundo.
 
-  Ground markings -- the worked soil of a talhão, the surface of a carreador --
-  are visuals with no collision. A 2 cm lip is nothing to a tractor and an
-  immovable wall to a rover with 4 cm casters, so the lanes are painted on the
-  ground rather than built up on it.
+  As marcações no chão -- a terra trabalhada de um talhão, a superfície de um carreador --
+  são visuais sem colisão. Um degrau de 2 cm não é nada para um trator e é uma parede
+  intransponível para um rover com rodízios de 4 cm, então as faixas são pintadas no chão e
+  não levantadas sobre ele.
 """
 
 from __future__ import annotations
@@ -38,25 +36,25 @@ import random
 from pathlib import Path as FilePath
 from textwrap import indent
 
-# Imported under another name because a Path down in this file is a road, and
-# the road wins: it is what most of the code here is about. Left as `Path`,
-# argparse resolved `type=Path` to the road class at call time and every
-# `--out` ended in "invalid Path value".
+# Importado com outro nome porque um `Path` mais adiante neste arquivo é uma estrada, e a estrada
+# leva a melhor: é sobre ela que está a maior parte do código. Deixado como `Path`, o argparse
+# resolvia `type=Path` para a classe da estrada na hora da chamada e todo `--out` terminava em
+# "invalid Path value".
 HERE = FilePath(__file__).resolve().parent
 DEFAULT_OUT = HERE.parent / "worlds"
 
-# ----------------------------------------------------------------- palette --
+# ---------------------------------------------------------------- paleta --
 
 C_GRASS = (0.30, 0.40, 0.20)
-C_BARK = (0.29, 0.23, 0.17)     # and its trunk, and the mata's
-C_LATOSOL = (0.62, 0.31, 0.18)  # the red earth of a citrus grove
+C_BARK = (0.29, 0.23, 0.17)     # e o tronco dela, e o da mata
+C_LATOSOL = (0.62, 0.31, 0.18)  # a terra vermelha de um pomar de citros
 C_SHED = (0.70, 0.68, 0.64)
 
 
 # --------------------------------------------------------------------- XML --
 
 def _n(v: float) -> str:
-    """Numbers as SDF wants them: no exponents, no trailing noise."""
+    """Números como o SDF quer: sem expoentes, sem ruído no fim."""
     return f"{v:.4f}".rstrip("0").rstrip(".") or "0"
 
 
@@ -75,9 +73,9 @@ def material(rgb, specular=0.05) -> str:
     )
 
 
-# Explicit friction, for the same reason empty.sdf sets it: the default
-# is slippery enough that a differential drive spins its wheels in place. On
-# the slope and the ramps it is the difference between climbing and sliding.
+# Atrito explícito, pelo mesmo motivo de o empty.sdf defini-lo: o padrão é escorregadio o
+# bastante para um acionamento diferencial girar as rodas no lugar. Na rampa e nos aclives é a
+# diferença entre subir e deslizar.
 FRICTION = (
     "<surface>\n"
     "  <friction>\n"
@@ -101,7 +99,7 @@ def include(uri: str, name: str, x, y, z=0.0, roll=0.0, pitch=0.0, yaw=0.0) -> s
 
 
 def box(name, size, position, rgb, rpy=(0.0, 0.0, 0.0), collide=True) -> str:
-    """A static box. collide=False leaves a pure marking on the ground."""
+    """Uma caixa estática. `collide=False` deixa uma marcação pura no chão."""
     sx, sy, sz = size
     geometry = f"<geometry><box><size>{_n(sx)} {_n(sy)} {_n(sz)}</size></box></geometry>"
     collision = ""
@@ -128,7 +126,7 @@ def box(name, size, position, rgb, rpy=(0.0, 0.0, 0.0), collide=True) -> str:
 
 
 def rotate(x, y, yaw):
-    """Turn a position given in a block's own frame into world coordinates."""
+    """Converte uma posição dada no referencial próprio de um bloco em coordenadas do mundo."""
     c, s = math.cos(yaw), math.sin(yaw)
     return x * c - y * s, x * s + y * c
 
@@ -213,15 +211,14 @@ WORLD = """\
 
 
 def emit(name: str, comment: str, parts: list[str], step: float = 0.001) -> str:
-    """Assemble a world. step is the physics step size, 1 ms unless the world
-    is big enough to need otherwise: the cost of a step here is nearly all
-    fixed overhead per entity, so a 2 ms step buys back half the real-time
-    factor at a cost in contact accuracy that no slow ground robot driving
-    among static obstacles will notice."""
-    # A double dash is illegal inside an XML comment. Gazebo's parser lets it
-    # through, ElementTree and xmllint do not, so a header drawn with ASCII
-    # rules made of dashes produces a world that only the simulator can read.
-    # Draw the plans with '=' and ':' instead.
+    """Monta um mundo. `step` é o passo da física, 1 ms a menos que o mundo seja grande o
+    bastante para pedir outro: o custo de um passo aqui é quase todo sobrecarga fixa por
+    entidade, então um passo de 2 ms devolve metade do fator de tempo real, a um custo em
+    precisão de contato que nenhum robô terrestre lento dirigindo entre obstáculos estáticos
+    vai notar."""
+    # Um traço duplo é ilegal dentro de um comentário XML. O parser do Gazebo deixa passar,
+    # o ElementTree e o xmllint não, então um cabeçalho desenhado com réguas ASCII feitas de
+    # traços produz um mundo que só o simulador consegue ler. Desenhe as plantas com '=' e ':'.
     comment = comment.strip()
     inner = comment.removeprefix("<!--").removesuffix("-->")
     if "--" in inner:
@@ -231,29 +228,26 @@ def emit(name: str, comment: str, parts: list[str], step: float = 0.001) -> str:
                         step_name=f"{_n(step * 1000)}ms")
 
 
-# ----------------------------------------------------------------- scenery --
+# --------------------------------------------------------------- cenário --
 
-# The same plants the model library holds, written out as bare shapes so that
-# hundreds of them can share one link.
+# As mesmas plantas que a biblioteca de modelos guarda, escritas como formas soltas para que
+# centenas delas compartilhem um único elo.
 #
-# Measured, because it is not obvious: 300 static objects as 300 models cost
-# 0.8 ms a step; the same 300 as links inside one model, 0.5 ms; as plain
-# shapes inside a single link, 0.3 ms. Gazebo charges for entities, and a model
-# is several. Over the six hundred trees, mounds and rocks scattered across
-# each farm that is the difference between a world that keeps up with the
-# clock and one that runs at a third of it, so out here the include goes and
-# the geometry is inlined. What is written below is therefore the only
-# definition of a mata tree and a rock. Where the count is small
-# model:// stays, and models/ holds exactly those: the tank, the bins, the
-# tractor and its trailer, five of a kind rather than six hundred.
+# Medido, porque não é óbvio: 300 objetos estáticos como 300 modelos custam 0,8 ms por passo;
+# os mesmos 300 como elos dentro de um modelo, 0,5 ms; como formas simples dentro de um único
+# elo, 0,3 ms. O Gazebo cobra por entidades, e um modelo é várias. Nas seiscentas árvores,
+# montes e pedras espalhados por cada fazenda, essa é a diferença entre um mundo que acompanha
+# o relógio e um que roda a um terço dele; então aqui o `include` sai e a geometria é
+# embutida. O que está escrito abaixo é, portanto, a única definição de uma árvore da mata e
+# de uma pedra. Onde a quantidade é pequena o `model://` fica, e models/ guarda exatamente
+# esses: o tanque, as caixas, o trator e a carreta, cinco de cada tipo em vez de seiscentos.
 #
-# (kind: [(collides, geometry, (dx, dy, dz), rgb)])
+# (tipo: [(colide, geometria, (dx, dy, dz), rgb)])
 SCENERY = {
-    # model://forest_tree, inlined. Two ellipsoids, one inside the other,
-    # on a trunk: the outer one is the canopy and the lighter inner one is the
-    # dense crown around the trunk, which is what keeps standing timber from
-    # reading as an oversized citrus. Same numbers as models/forest_tree, and
-    # that file is where they are explained.
+    # `model://forest_tree`, embutido. Dois elipsoides, um dentro do outro, sobre um tronco: o
+    # externo é a copa e o interno, mais claro, é a copa densa em volta do tronco, o que impede
+    # a madeira em pé de parecer um citros grande demais. Mesmos números de models/forest_tree,
+    # e é nesse arquivo que eles são explicados.
     "forest_tree": [
         (True, "<cylinder><radius>0.26</radius><length>2.9</length></cylinder>",
          (0, 0, 1.45), C_BARK),
@@ -271,11 +265,10 @@ SCENERY = {
 
 
 def scenery(name, items):
-    """One model, one link, every scattered plant and rock in it.
+    """Um modelo, um elo, com toda planta e pedra espalhada dentro dele.
 
-    items: (kind, x, y, z, yaw). Yaw turns the off-centre pieces, which is what
-    keeps a hundred copies of the same tree from looking like a hundred copies
-    of the same tree.
+    items: (tipo, x, y, z, yaw). O yaw gira as peças fora do centro, o que impede cem cópias
+    da mesma árvore de parecerem cem cópias da mesma árvore.
     """
     out = [f'<model name="{name}">', "  <static>true</static>",
            '  <link name="link">']
@@ -283,10 +276,9 @@ def scenery(name, items):
         for k, (collides, geom, (dx, dy, dz), rgb) in enumerate(SCENERY[kind]):
             ox, oy = rotate(dx, dy, yaw)
             at = pose(x + ox, y + oy, z + dz, 0, 0, yaw)
-            # Collision and visual are separate questions, and reading them as
-            # one is how a hundred trees ended up as canopies floating over
-            # nothing: a trunk both collides and has to be seen, a mound's
-            # collision cylinder is a stand-in for visuals it already has.
+            # Colisão e visual são perguntas separadas, e lê-las como uma só é como cem árvores
+            # viraram copas flutuando sobre o nada: um tronco colide e também precisa ser visto,
+            # e o cilindro de colisão de um monte é um substituto de visuais que ele já tem.
             if collides:
                 out += [f'    <collision name="c{n}_{k}">', f"      {at}",
                         f"      <geometry>{geom}</geometry>", "    </collision>"]
@@ -298,34 +290,33 @@ def scenery(name, items):
     return "\n".join(out)
 
 
-# ------------------------------------------------------------------ ground --
+# ----------------------------------------------------------------- terreno --
 
 class Terrain:
-    """Rolling ground, built from tilted slabs.
+    """Terreno ondulado, feito de lajes inclinadas.
 
-    Gazebo Harmonic's DART will collide with neither a heightmap nor a mesh in
-    this build. Both were tried and measured: a sphere dropped on a heightmap
-    falls to z = -1686, and on a trimesh to z = -1093, in the second case after
-    the mesh loads without complaint. So the ground here is made of the one
-    thing that certainly does collide, which is boxes, and the vineyard proves
-    it: a rover left on a tilted slab there settles at exactly its 8 degrees
-    and stays put.
+    O DART do Gazebo Harmonic não colide com um `heightmap` nem com uma malha neste build. Os
+    dois foram tentados e medidos: uma esfera solta sobre um `heightmap` cai até z = -1686, e
+    sobre uma `trimesh` até z = -1093, no segundo caso depois de a malha carregar sem reclamar.
+    Então o terreno aqui é feito da única coisa que certamente colide, que são caixas, e o
+    vinhedo prova: um rover deixado numa laje inclinada ali se assenta exatamente nos seus 8
+    graus e fica parado.
 
-    A box's top face is a plane, so the surface has to be piecewise planar, and
-    for the slabs to tile without leaving a lip at the joins each one may tilt
-    about a single axis only. Tilt about two and the top faces project to
-    parallelograms that no longer meet at the corners: at these sizes that is
-    ten to twenty centimetres of gap, which is nothing to look at and
-    everything to a rover with 4 cm casters.
+    A face de cima de uma caixa é um plano, então a superfície tem de ser plana por partes, e
+    para as lajes se encaixarem sem deixar um degrau nas junções cada uma só pode inclinar em
+    torno de um único eixo. Inclinando em torno de dois, as faces de cima se projetam em
+    paralelogramos que deixam de se encontrar nos cantos: nestes tamanhos são dez a vinte
+    centímetros de vão, que não é nada para os olhos e é tudo para um rover com rodízios de
+    4 cm.
 
-    Hence relief that varies along X and is level along Y. Ridges and valleys
-    running north to south, which is a real landform and not a compromise, and
-    slabs that meet exactly along each fold because both planes are defined to
-    pass through the same node height there.
+    Daí o relevo que varia ao longo de X e é plano ao longo de Y. Cristas e vales correndo de
+    norte a sul, o que é uma forma de relevo real e não um compromisso, e lajes que se
+    encontram exatamente em cada dobra porque os dois planos são definidos para passar pela
+    mesma altura de nó ali.
     """
 
     def __init__(self, nodes, y_half=250.0, thickness=8.0):
-        self.nodes = sorted(nodes)          # [(x, z)] along the profile
+        self.nodes = sorted(nodes)                  # [(x, z)] ao longo do perfil
         self.y_half = y_half
         self.thickness = thickness
 
@@ -336,8 +327,8 @@ class Terrain:
         return 0 if x < self.nodes[0][0] else len(self.nodes) - 2
 
     def strip(self, x):
-        """Which planar stretch a point is on. Rows are not allowed to cross
-        one of these, so that every hedge lies in a single plane."""
+        """Em que trecho plano um ponto está. As fileiras não podem cruzar um destes, para que
+        toda sebe fique num único plano."""
         return self._span(x)
 
     def grade(self, x):
@@ -351,11 +342,11 @@ class Terrain:
         return z0 + (z1 - z0) * (x - x0) / (x1 - x0)
 
     def pose_on(self, x, y, yaw=0.0):
-        """Where and how a flat thing lies on the ground here.
+        """Onde e como uma coisa plana se apoia no terreno aqui.
 
-        The rotation wanted is Ry(pitch) . Rz(yaw): turn the object to its
-        heading, then lay the whole thing on the slope. SDF wants that as roll,
-        pitch and yaw in the other order, so it is composed and read back.
+        A rotação desejada é Ry(pitch) . Rz(yaw): gira o objeto para o rumo dele e depois
+        deita a coisa toda na encosta. O SDF quer isso como roll, pitch e yaw na outra ordem,
+        então ela é composta e lida de volta.
         """
         p = -math.atan(self.grade(x))
         c, s = math.cos(yaw), math.sin(yaw)
@@ -366,7 +357,7 @@ class Terrain:
         return x, y, self.z(x), roll_o, pitch_o, yaw_o
 
     def slabs(self, name, rgb):
-        """The ground itself: one model, one slab per stretch of the profile."""
+        """O terreno em si: um modelo, uma laje por trecho do perfil."""
         out = [f'<model name="{name}">', "  <static>true</static>",
                '  <link name="link">']
         for i in range(len(self.nodes) - 1):
@@ -375,8 +366,8 @@ class Terrain:
             theta = math.atan(grade)
             length = (x1 - x0) / math.cos(theta)
             t = self.thickness
-            # the top face has to pass through both nodes, so the box centre
-            # sits half a thickness back along the slab's own normal
+            # a face de cima tem de passar pelos dois nós, então o centro da caixa fica meia
+            # espessura para trás ao longo da normal da própria laje
             cx = (x0 + x1) / 2 + (t / 2) * math.sin(theta)
             cz = (z0 + z1) / 2 - (t / 2) * math.cos(theta)
             geom = (f"<geometry><box><size>{_n(length)} {_n(2 * self.y_half)} "
@@ -393,18 +384,17 @@ class Terrain:
         return "\n".join(out)
 
 
-# --------------------------------------------------------- roads and curves -
+# --------------------------------------------------------- estradas e curvas -
 
 class Path:
-    """A road centreline, written the way it is driven.
+    """Uma linha central de estrada, escrita do jeito que é percorrida.
 
         Path(0, 0, 90).straight(50).turn(-45, 22).straight(30)
 
-    turn() takes the angle in degrees, positive to the left, and the radius of
-    the centreline. The radius is the number that matters. A tractor with a
-    loaded trailer on a rigid drawbar cuts the corner, so the inside edge of a
-    bend is what its wheels find first, and a curve that looks generous on a
-    map is where a driver has to shunt.
+    `turn()` recebe o ângulo em graus, positivo para a esquerda, e o raio da linha central. O
+    raio é o número que importa. Um trator com carreta carregada em barra de tração rígida
+    corta a curva, então a borda de dentro de uma curva é o que as rodas dele encontram
+    primeiro, e uma curva que parece generosa no mapa é onde o motorista precisa manobrar.
     """
 
     def __init__(self, x, y, heading_deg):
@@ -416,14 +406,13 @@ class Path:
         return self
 
     def turn(self, degrees, radius):
-        """Bend the road. radius=0 is a sharp corner: no arc, just a vertex.
+        """Curva a estrada. `radius=0` é uma esquina viva: sem arco, só um vértice.
 
-        A graded farm road turns both ways. Where there is room it is bladed
-        round, and where two blocks meet square it is simply cut, and the
-        aerial photographs are full of both. A vertex costs no straight either
-        -- an arc eats radius * tan(half the turn) off the road at each end,
-        a corner eats nothing -- which is why a sharp 90 can sit where a
-        rounded one would not fit.
+        Uma estrada de fazenda trabalhada vira para os dois lados. Onde há espaço ela é
+        abaulada em curva, e onde dois blocos se encontram em esquadro ela é simplesmente
+        cortada, e as fotografias aéreas estão cheias dos dois. Um vértice também não custa
+        reta -- um arco come raio * tan(metade da curva) da estrada em cada ponta, uma esquina
+        não come nada -- e é por isso que um 90 vivo cabe onde um arredondado não caberia.
         """
         self.segments.append(("t", radius, math.radians(degrees)))
         return self
@@ -433,7 +422,7 @@ class Path:
         return (x - sign * radius * math.sin(h), y + sign * radius * math.cos(h), sign)
 
     def points(self, step=1.0):
-        """The centreline as a dense polyline, for measuring distances to it."""
+        """A linha central como uma poligonal densa, para medir distâncias até ela."""
         x, y, h = self.x0, self.y0, self.h0
         pts = [(x, y)]
         for kind, a, b in self.segments:
@@ -444,7 +433,7 @@ class Path:
             else:
                 radius, sweep = a, b
                 if radius <= 0.0:
-                    h += sweep      # a corner is one point, already in pts
+                    h += sweep                          # uma esquina é um ponto só, já em `pts`
                     continue
                 cx, cy, sign = self._arc_centre(x, y, h, radius, sweep)
                 n = max(2, int(abs(sweep) * radius / step))
@@ -457,18 +446,18 @@ class Path:
         return pts
 
     def at(self, distance):
-        """Position and heading a given distance along the road."""
+        """Posição e rumo a certa distância ao longo da estrada."""
         pts = self.points(0.25)
         i = min(int(distance / 0.25), len(pts) - 2)
         (px, py), (qx, qy) = pts[i], pts[i + 1]
         return px, py, math.atan2(qy - py, qx - px)
 
     def turns(self):
-        """(degrees, radius) of every bend, for the checks to look at."""
+        """(graus, raio) de cada curva, para as verificações olharem."""
         return [(math.degrees(b), a) for kind, a, b in self.segments if kind == "t"]
 
     def end(self):
-        """Where the road has got to, and which way it is pointing."""
+        """Onde a estrada chegou, e para que lado ela aponta."""
         x, y, h = self.x0, self.y0, self.h0
         for kind, a, b in self.segments:
             if kind == "s":
@@ -481,11 +470,11 @@ class Path:
         return x, y, h
 
     def close_to_y(self, y_target):
-        """Run on until the road reaches a given line, and stop there.
+        """Segue em frente até a estrada alcançar uma dada linha, e para ali.
 
-        Every block road in citrus_farm leaves the main carreador and comes
-        back to it. Working out the length of that last straight by hand means
-        redoing the arithmetic every time a radius changes; this just asks.
+        Toda estrada de bloco em citrus_farm sai do carreador principal e volta a ele. Calcular
+        à mão o comprimento dessa última reta significa refazer a conta toda vez que um raio
+        muda; isto apenas pergunta.
         """
         x, y, h = self.end()
         d = (y_target - y) / math.sin(h)
@@ -494,11 +483,11 @@ class Path:
         return self.straight(d)
 
     def close_to_boundary(self, points, reach_max=700.0):
-        """Run on until the road meets the property boundary, and stop there.
+        """Segue em frente até a estrada encontrar o limite da propriedade, e para ali.
 
-        The counterpart of close_to_y for a boundary that is not a straight
-        line: a hexagon or a twelve sided ring. Same purpose, which is that no
-        road may end in the middle of a field.
+        A contrapartida de `close_to_y` para um limite que não é uma reta: um hexágono ou um
+        anel de doze lados. Mesmo propósito, que é nenhuma estrada terminar no meio de um
+        campo.
         """
         x, y, h = self.end()
         grid = NearGrid(points)
@@ -511,13 +500,12 @@ class Path:
         raise ValueError("this road never reaches the boundary")
 
     def marks(self):
-        """(x, y, heading, degrees, radius, run) at the mouth of every bend.
+        """(x, y, rumo, graus, raio, trecho) na boca de cada curva.
 
-        run is the straight that leads into it, which is what decides where the
-        angle can be written and how big the figures can be. On a road of six
-        30s there are twenty metres between bends and on one of two 90s there
-        are a hundred and thirty; a number placed a fixed distance back from
-        the curve lands on the previous curve in the first case.
+        `run` é a reta que leva até ela, o que decide onde o ângulo pode ser escrito e quão
+        grandes as figuras podem ser. Numa estrada de seis 30 há vinte metros entre curvas e
+        numa de dois 90 há cento e trinta; um número posto a uma distância fixa antes da curva
+        cai na curva anterior no primeiro caso.
         """
         x, y, h = self.x0, self.y0, self.h0
         out, run = [], 0.0
@@ -536,9 +524,9 @@ class Path:
 
 
 class NearGrid:
-    """Bucketed points, for asking 'is anything within r of here' ten thousand
-    times. A linear scan over every road point turns the generator into a
-    minute of waiting; a 10 m grid keeps it under a second."""
+    """Pontos em baldes (`buckets`), para perguntar 'há algo a até r daqui' dez mil vezes. Uma
+    varredura linear por todos os pontos da estrada transforma o gerador num minuto de espera;
+    uma grade de 10 m o mantém abaixo de um segundo."""
 
     def __init__(self, points, cell=10.0):
         self.cell = cell
@@ -558,7 +546,7 @@ class NearGrid:
 
 
 def in_polygon(x, y, poly):
-    """Ray casting, so the mata can be any shape it likes."""
+    """Lançamento de raio, para a mata poder ter a forma que quiser."""
     inside = False
     n = len(poly)
     for i in range(n):
@@ -571,14 +559,14 @@ def in_polygon(x, y, poly):
 
 
 def blob(cx, cy, rx, ry, seed, n=16, wobble=0.3):
-    """An irregular closed polygon: what a patch of mata looks like on a map."""
+    """Um polígono fechado irregular: o aspecto de uma mancha de mata num mapa."""
     rng = random.Random(seed)
     return [(cx + rx * (1 + rng.uniform(-wobble, wobble)) * math.cos(2 * math.pi * i / n),
              cy + ry * (1 + rng.uniform(-wobble, wobble)) * math.sin(2 * math.pi * i / n))
             for i in range(n)]
 
 
-# ----------------------------------------------------------- citrus farms ---
+# ------------------------------------------------------------ fazendas de citros ---
 
 FARM_COMMENT = """
 <!--
@@ -756,7 +744,8 @@ FARM_COMMENT = """
 
 
 def rot_apply(roll, pitch, yaw, v):
-    """Turn an offset given in an object's own frame into a world offset."""
+    """Converte um deslocamento dado no referencial próprio de um objeto em deslocamento do
+    mundo."""
     ca, sa = math.cos(yaw), math.sin(yaw)
     cb, sb = math.cos(pitch), math.sin(pitch)
     cg, sg = math.cos(roll), math.sin(roll)
@@ -770,89 +759,85 @@ def rot_apply(roll, pitch, yaw, v):
 
 CITRUS_VARIANTS = "abcdef"
 
-# Trees baked eight, four and two to a mesh by
-# scripts/generate_citrus_meshes.py, and the spacing they were baked at. A row
-# is laid in runs, longest first, and the last tree or two planted singly.
+# Árvores assadas de oito, quatro e duas por malha por scripts/generate_citrus_meshes.py, e o
+# espaçamento em que foram assadas. Uma fileira é posta em sequências, as mais longas
+# primeiro, e a última árvore ou as duas últimas são plantadas avulsas.
 #
-# This is the entity budget, not a rendering trick. Every <visual> is an entity
-# and the server walks all of them on every step, moving or not, rendered or
-# not: citrus_farm_60 with 7255 visuals steps 312 times a second, and 1428 with
-# the visuals removed. Its 4966 tree visuals become about 620 this way.
+# Isto é o orçamento de entidades, não um truque de renderização. Cada `<visual>` é uma
+# entidade e o servidor percorre todas a cada passo, movam-se ou não, sejam renderizadas ou
+# não: citrus_farm_60 com 7255 visuais dá 312 passos por segundo, e 1428 sem os visuais. As
+# 4966 árvores viram cerca de 620 visuais assim.
 CITRUS_RUNS = "abcdef"
 RUN_SIZES = (8, 4, 2)
 RUN_SPACING = 3.0
 
 
-# Which crown each talhao is planted with. Three of the four tree models are
-# citrus and are named here; the fourth, model://forest_tree, is what a mata is
-# made of and is never planted in rows.
+# Com qual copa cada talhão é plantado. Três dos quatro modelos de árvore são de citros e são
+# nomeados aqui; o quarto, `model://forest_tree`, é do que a mata é feita e nunca é plantado
+# em fileiras.
 #
-#   "mesh"         the lumpy polygon crown, baked eight to a run
-#   "fruit"        the same crown, carrying oranges
-#   "round"        the smooth crown of model://citrus_round
-#   "round_fruit"  the smooth crown, carrying oranges
+#   "mesh"         a copa poligonal irregular, assada oito por sequência
+#   "fruit"        a mesma copa, carregando laranjas
+#   "round"        a copa lisa de `model://citrus_round`
+#   "round_fruit"  a copa lisa, carregando laranjas
 #
-# A block not named here is planted "mesh", which is the only one of the three
-# that can use the baked runs and therefore the only one that is nearly free.
-# The other two cost one visual a tree, and "fruit" costs two, so what this
-# table really sets is how much of the entity budget goes on looking at things
-# rather than on driving past them. Three blocks of fourteen is the split these
-# worlds are tuned around.
+# Um bloco não nomeado aqui é plantado como "mesh", que é o único dos três que pode usar as
+# sequências assadas e, portanto, o único quase de graça. Os outros dois custam um visual por
+# árvore, e "fruit" custa dois, então o que esta tabela realmente define é quanto do orçamento
+# de entidades vai para olhar as coisas e não para passar por elas. Três blocos de quatorze
+# é a divisão em torno da qual estes mundos foram ajustados.
 #
-# They are spread rather than adjacent on purpose: one round block in the
-# north west, one south of the yard, and the fruiting one at the crossroads,
-# so that no route across the property misses them and none of them can be
-# confused with a change in the ground.
+# Eles são espalhados e não adjacentes de propósito: um bloco redondo no noroeste, um ao sul
+# do pátio, e o frutífero no cruzamento, para que nenhuma rota pela propriedade os perca e
+# nenhum possa ser confundido com uma mudança no terreno.
 PLANTING = {"e": "round", "l": "round", "n": "fruit",
             "nw": "round", "sw": "round_fruit", "se": "fruit"}
 
 
 def hedgerow_shapes(tag, x0, y0, x1, y1, seed, spacing=3.0, canopy=3.5,
                     terrain=None, kind="mesh"):
-    """One run of closed citrus hedge, as shapes already in world coordinates.
+    """Um trecho de sebe fechada de citros, como formas já em coordenadas do mundo.
 
-    Cut to length rather than fixed at a stock 24 m, because a row that stops
-    where a carreador curves cannot be a stock part. That is why a hedge is
-    built here and not kept in models/ as a ready-made section.
+    Cortado no comprimento em vez de fixo num padrão de 24 m, porque uma fileira que para onde
+    um carreador curva não pode ser uma peça padrão. É por isso que a sebe é construída aqui e
+    não guardada em models/ como uma seção pronta.
 
-    Every tree is one visual, whichever crown it wears: a mesh from
-    model://citrus_tree with its own trunk inside it, or the single ellipsoid
-    of model://citrus_round. Only fruit costs a second one. What these worlds
-    used to draw was a bare crown floating with nothing under it — an
-    ellipsoid at 1.75 m and no trunk at all — defended on cost, and the
-    defence was wrong: a trunk as a *second* shape would indeed have doubled
-    the visual count, but a trunk inside the crown's own mesh costs nothing,
-    because Gazebo charges per entity and not per triangle. The round crown is
-    skirted to the ground for the same reason: it is free to stand it on
-    something.
+    Toda árvore é um visual, qualquer que seja a copa que ela use: uma malha de
+    `model://citrus_tree` com o próprio tronco dentro, ou o único elipsoide de
+    `model://citrus_round`. Só o fruto custa um segundo. O que estes mundos desenhavam antes era
+    uma copa nua flutuando sem nada embaixo -- um elipsoide a 1,75 m e nenhum tronco --
+    defendido pelo custo, e a defesa estava errada: um tronco como *segunda* forma de fato
+    dobraria a contagem de visuais, mas um tronco dentro da malha da própria copa não custa
+    nada, porque o Gazebo cobra por entidade e não por triângulo. A copa redonda tem saia até o
+    chão pelo mesmo motivo: sai de graça apoiá-la em alguma coisa.
 
-    It returns loose shapes rather than a model so that a whole block's worth
-    of them can share one link. Two hundred hedgerows as two hundred models is
-    a measurable amount of a simulation step, on the same accounting.
+    Devolve formas soltas e não um modelo para que um bloco inteiro delas compartilhe um único
+    elo. Duzentas sebes como duzentos modelos são uma parte mensurável de um passo de
+    simulação, na mesma contabilidade.
 
-    Trees are planted from runs baked by scripts/generate_citrus_meshes.py,
-    eight at a time and then four and two, with at most one tree of any row
-    left over to plant singly. That is what keeps the entity count down; see CITRUS_RUNS above.
+    As árvores são plantadas a partir de sequências assadas por
+    scripts/generate_citrus_meshes.py, de oito em oito e depois de quatro e de duas, com no
+    máximo uma árvore de cada fileira sobrando para ser plantada avulsa. É isso que mantém a
+    contagem de entidades baixa; ver `CITRUS_RUNS` acima.
 
-    `kind` picks which of the three citrus models the row is planted with,
-    and the choice is an entity budget as much as a look:
+    `kind` escolhe com qual dos três modelos de citros a fileira é plantada, e a escolha é
+    tanto um orçamento de entidades quanto um visual:
 
-      "mesh"         the lumpy polygon crown of model://citrus_tree.
-      "fruit"        the same crown carrying oranges.
-      "round"        model://citrus_round's shape: one smooth crown, and the
-                     stump it stands on.
-      "round_fruit"  the smooth crown carrying oranges.
+      "mesh"         a copa poligonal irregular de `model://citrus_tree`.
+      "fruit"        a mesma copa carregando laranjas.
+      "round"        a forma de `model://citrus_round`: uma copa lisa, e o toco em que ela
+                     se apoia.
+      "round_fruit"  a copa lisa carregando laranjas.
 
-    Two crowns and fruit or no fruit, which is four libraries and four ways a
-    talhao can look. One to a block and no more: a block is planted at one age
-    with one variety, and a block of two kinds of tree is two blocks.
+    Duas copas e com fruto ou sem fruto, que são quatro bibliotecas e quatro jeitos de um
+    talhão ser. Um por bloco e não mais: um bloco é plantado com uma idade e uma variedade, e
+    um bloco de dois tipos de árvore são dois blocos.
 
-    All three are baked eight, four and two crowns to a mesh, so all three
-    cost the same, about one visual for every eight trees. One talhao takes
-    one of them and no more: a block is planted at one age with one variety,
-    and a block of two kinds of tree is two blocks.
+    Os três são assados com oito, quatro e duas copas por malha, então os três custam o mesmo,
+    cerca de um visual a cada oito árvores. Um talhão leva um deles e não mais: um bloco é
+    plantado com uma idade e uma variedade, e um bloco de dois tipos de árvore são dois blocos.
 
-    Which talhão gets which is PLANTING, near the top of this file.
+    Qual talhão recebe qual está em `PLANTING`, perto do topo deste arquivo.
     """
     length = math.hypot(x1 - x0, y1 - y0)
     n = int(length // spacing)
@@ -862,16 +847,16 @@ def hedgerow_shapes(tag, x0, y0, x1, y1, seed, spacing=3.0, canopy=3.5,
     yaw = math.atan2(y1 - y0, x1 - x0)
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     rng = random.Random(seed)
-    # A row never crosses a fold in the ground, so one plane describes all of
-    # it and the whole run can simply be laid on that plane.
+    # Uma fileira nunca cruza uma dobra do terreno, então um plano descreve a fileira toda e a
+    # sequência inteira pode simplesmente ser deitada nesse plano.
     px, py, pz, roll, pitch, yaw_w = (terrain.pose_on(cx, cy, yaw) if terrain
                                       else (cx, cy, 0.0, 0.0, 0.0, yaw))
 
     def at(local, spin=0.0):
         ox, oy, oz = rot_apply(roll, pitch, yaw_w, local)
-        # A tree's own spin goes on the yaw of the row's plane. On ground this
-        # flat that is the same thing as turning it about its own trunk to
-        # within a degree, and it costs no second rotation.
+        # O giro próprio de uma árvore vai no yaw do plano da fileira. Em terreno tão plano isso
+        # é o mesmo que girá-la em torno do próprio tronco, com erro de um grau, e não custa
+        # uma segunda rotação.
         return pose(px + ox, py + oy, pz + oz, roll, pitch, yaw_w + spin)
 
     out = [f'    <collision name="c_{tag}">',
@@ -884,16 +869,15 @@ def hedgerow_shapes(tag, x0, y0, x1, y1, seed, spacing=3.0, canopy=3.5,
            "</box></geometry>",
            f"{indent(material(C_LATOSOL), '      ')}", "    </visual>"]
 
-    # The row is laid in baked runs, longest first, and whatever will not fill
-    # a run of two is planted tree by tree. A run only fits if the row is at
-    # the spacing the runs were baked at.
+    # A fileira é posta em sequências assadas, as mais longas primeiro, e o que não preencher
+    # uma sequência de duas é plantado árvore por árvore. Uma sequência só cabe se a fileira
+    # está no espaçamento em que as sequências foram assadas.
     #
-    # Which library the runs come from is the whole of what `kind` does. All
-    # three are baked eight, four and two crowns to a mesh, so a talhao of
-    # fruit and a talhao of plain crowns cost what a talhao of the ordinary
-    # ones costs. Before they were baked the fruit went on one tree at a time
-    # with a second visual for the oranges, and two nine hectare blocks came to
-    # 6180 visuals against the 922 the ordinary crown cost for the same trees.
+    # De qual biblioteca vêm as sequências é tudo o que `kind` faz. Os três são assados com
+    # oito, quatro e duas copas por malha, então um talhão de frutos e um talhão de copas
+    # simples custam o que custa um talhão das comuns. Antes de serem assados o fruto ia numa
+    # árvore por vez, com um segundo visual para as laranjas, e dois blocos de nove hectares
+    # chegavam a 6180 visuais contra os 922 que a copa comum custava para as mesmas árvores.
     run_name = "citrus_plain" if kind.startswith("round") else "citrus_run"
     run_tail = "_fruit" if kind.endswith("fruit") else ""
     baked = 0
@@ -914,21 +898,21 @@ def hedgerow_shapes(tag, x0, y0, x1, y1, seed, spacing=3.0, canopy=3.5,
 
     for i in range(baked, n):
         along = -span / 2 + i * spacing
-        # Six crowns, shuffled, spun to any angle and scaled a few per cent
-        # each. The variation has to be there or a row reads as one tree
-        # stamped forty times; inside a run the same variation is baked in.
+        # Seis copas, embaralhadas, giradas a qualquer ângulo e escaladas alguns por cento cada
+        # uma. A variação tem de existir ou uma fileira parece uma árvore carimbada quarenta
+        # vezes; dentro de uma sequência a mesma variação já vem assada.
         v = CITRUS_VARIANTS[rng.randrange(len(CITRUS_VARIANTS))]
         spin = rng.uniform(0, 2 * math.pi)
         sx = 1 + rng.uniform(-0.08, 0.08)
         sy = 1 + rng.uniform(-0.08, 0.08)
         sz = 1 + rng.uniform(-0.10, 0.13)
         scale = f"<scale>{_n(sx)} {_n(sy)} {_n(sz)}</scale>"
-        # Off the row line by a few centimetres, the way a planted tree
-        # stands: dead straight rows are the other half of why a generated
-        # block looks generated.
+        # Fora da linha da fileira por alguns centímetros, do jeito que uma árvore plantada fica:
+        # fileiras perfeitamente retas são a outra metade do motivo de um bloco gerado parecer
+        # gerado.
         across = rng.uniform(-0.14, 0.14)
 
-        # Whatever is left over at the end of a row, planted one at a time.
+        # O que sobra no fim de uma fileira, plantado um por vez.
         stem = "citrus_plain_" if kind.startswith("round") else "citrus_"
         singles = ([(stem, ""), (stem, "_fruit")] if kind.endswith("fruit")
                    else [(stem, "")])
@@ -942,28 +926,26 @@ def hedgerow_shapes(tag, x0, y0, x1, y1, seed, spacing=3.0, canopy=3.5,
 
 
 def hedges(name, shapes):
-    """A block's worth of hedgerows, in one model and one link."""
+    """Os trechos de sebe de um bloco, em um modelo e um elo."""
     return "\n".join([f'<model name="{name}">', "  <static>true</static>",
                       '  <link name="link">'] + shapes + ["  </link>", "</model>"])
 
 
-# ------------------------------------------------------ roads, as a ribbon --
+# ------------------------------------------------- estradas, como uma fita --
 #
-# A carreador used to be drawn as boxes: a flat slab per straight, a fan of
-# them per arc, and then more of them, because the ground folds underneath and
-# a box is one plane. Where a road crossed a fold at an angle the fold ran
-# diagonally across the rectangle, which no single cut fixes, so the code
-# chopped the length every 3 m near the crease and split each chop across its
-# width. It worked and it was expensive: the four oblique roads of
-# citrus_farm came to 1139 visuals between them, against 190 for the
-# whole 2240 m perimeter, and cost the world 0.16 of its real time factor.
+# Um carreador era desenhado com caixas: uma laje por reta, um leque delas por arco, e depois
+# mais delas, porque o terreno dobra por baixo e uma caixa é um plano só. Onde uma estrada
+# cruzava uma dobra em ângulo, a dobra corria na diagonal pelo retângulo, o que nenhum corte
+# único resolve, então o código picava o comprimento a cada 3 m perto do vinco e dividia cada
+# pedaço na largura. Funcionava e era caro: as quatro estradas oblíquas de citrus_farm chegavam
+# a 1139 visuais entre elas, contra 190 para todo o perímetro de 2240 m, e custavam ao mundo
+# 0,16 do fator de tempo real.
 #
-# So a road is now one mesh. The advantage is not only the entity count: a
-# mesh has no obligation to be planar, so the fold does not have to be cut
-# around -- it can be an edge of the geometry, which is what it is on the
-# ground. The strip is clipped by each fold it crosses and every piece that
-# comes out lies in exactly one plane of the terrain. Exact, with nothing to
-# tune, and cheaper than the approximation it replaces.
+# Agora uma estrada é uma malha só. A vantagem não é só a contagem de entidades: uma malha não
+# tem obrigação de ser plana, então a dobra não precisa ser contornada -- pode ser uma aresta
+# da geometria, que é o que ela é no terreno. A faixa é recortada por cada dobra que cruza e
+# todo pedaço que sai fica em exatamente um plano do terreno. Exato, sem nada para ajustar, e
+# mais barato que a aproximação que ele substitui.
 
 ROAD_COLOURS = {
     "latosol": C_LATOSOL,
@@ -972,14 +954,13 @@ ROAD_COLOURS = {
 
 
 def road_spine(path, arc_step=2.5):
-    """The centreline as stations: (x, y, heading in, heading out).
+    """A linha central como estações: (x, y, rumo de entrada, rumo de saída).
 
-    A straight gives its two ends, an arc a station every arc_step, and a
-    sharp corner one station whose two headings differ. That last one is why
-    the spine is shaped like this rather than as a plain polyline: a vertex is
-    not a point on a curve, it is a point where the road points two ways at
-    once, and the edge of a ribbon laid over it needs both directions to know
-    where its own corner goes.
+    Uma reta dá as duas pontas, um arco uma estação a cada `arc_step`, e uma esquina viva uma
+    estação cujos dois rumos diferem. Esta última é o motivo de a espinha ter esta forma e não
+    a de uma poligonal simples: um vértice não é um ponto de uma curva, é um ponto onde a
+    estrada aponta para dois lados ao mesmo tempo, e a borda de uma fita posta sobre ele
+    precisa das duas direções para saber onde fica o próprio canto.
     """
     x, y, h = path.x0, path.y0, path.h0
     out = [[x, y, h, h]]
@@ -992,7 +973,7 @@ def road_spine(path, arc_step=2.5):
             continue
         radius, sweep = a, b
         if radius <= 0.0:
-            out[-1][3] = h + sweep          # the vertex, in on h, out past it
+            out[-1][3] = h + sweep          # o vértice, entra em h, sai além dele
             h += sweep
             continue
         cx, cy, sign = path._arc_centre(x, y, h, radius, sweep)
@@ -1007,26 +988,25 @@ def road_spine(path, arc_step=2.5):
 
 
 def _mitre(h_in, h_out):
-    """Which way, and how far, a road edge steps out at one station.
+    """Para que lado, e quanto, a borda da estrada se afasta numa estação.
 
-    On a straight or an arc this is just the left-hand normal. At a vertex it
-    is where the two offset lines cross, which is that normal stretched by
-    1 / cos(half the turn) -- 1.41 at a right angle. That is not a flourish:
-    it is exactly the square corner a grader leaves, and it comes out of the
-    same two lines of arithmetic as every other station, which is what let the
-    hand-laid patch over each vertex go. The patch was a square of road laid
-    over the notch, and it had to be cut around the folds like everything else.
+    Numa reta ou num arco isto é só a normal da esquerda. Num vértice é onde as duas linhas
+    deslocadas se cruzam, que é essa normal esticada por 1 / cos(metade da curva) -- 1,41 num
+    ângulo reto. Isso não é enfeite: é exatamente a esquina em esquadro que uma motoniveladora
+    deixa, e sai das mesmas duas linhas de conta de qualquer outra estação, o que permitiu
+    eliminar o remendo feito à mão sobre cada vértice. O remendo era um quadrado de estrada
+    posto sobre o entalhe, e tinha de ser recortado nas dobras como tudo o mais.
     """
     nx_i, ny_i = -math.sin(h_in), math.cos(h_in)
     nx_o, ny_o = -math.sin(h_out), math.cos(h_out)
     k = 1.0 + nx_i * nx_o + ny_i * ny_o
-    if k < 0.2:                    # a turn near 180 degrees has no honest mitre
+    if k < 0.2:                    # uma curva perto de 180 graus não tem mitra honesta
         return nx_o, ny_o
     return (nx_i + nx_o) / k, (ny_i + ny_o) / k
 
 
 def _cut_x(poly, f):
-    """A convex polygon cut by the vertical line x = f, as up to two."""
+    """Um polígono convexo cortado pela reta vertical x = f, em até dois."""
     low, high = [], []
     for (ax, ay), (bx, by) in zip(poly, poly[1:] + poly[:1]):
         if ax <= f:
@@ -1042,7 +1022,7 @@ def _cut_x(poly, f):
 
 
 def _one_plane_each(poly, folds):
-    """Split a polygon until no piece of it straddles a fold in the ground."""
+    """Divide um polígono até nenhum pedaço dele cavalgar uma dobra do terreno."""
     out = [poly]
     for f in folds:
         cut = []
@@ -1074,13 +1054,13 @@ def _tri_normal(a, b, c):
 
 
 def ribbon(spine, terrain, z, lo, hi):
-    """One strip of ground-hugging surface, as a list of triangles.
+    """Uma faixa de superfície colada ao terreno, como uma lista de triângulos.
 
-    lo and hi are lateral offsets in metres, left of travel positive: a
-    carreador is (-w/2, +w/2) and a wheel rut is a narrow band well off the
-    middle of it. Every vertex sits on the ground at its own x and z above it,
-    and every triangle lies in one plane of the terrain, because the quads are
-    clipped by the folds before they are triangulated.
+    `lo` e `hi` são deslocamentos laterais em metros, positivos à esquerda do sentido de
+    marcha: um carreador é (-w/2, +w/2) e uma trilha de roda é uma faixa estreita bem fora do
+    meio dele. Cada vértice fica no terreno no próprio x e com z acima dele, e cada triângulo
+    está num plano do terreno, porque os quadriláteros são recortados pelas dobras antes de
+    serem triangulados.
     """
     folds = sorted(f for f, _ in terrain.nodes) if terrain is not None else []
     rail = []
@@ -1102,10 +1082,10 @@ def ribbon(spine, terrain, z, lo, hi):
 
 
 def obj_mesh(groups, note, mtl):
-    """One OBJ holding every road of a world, a named object per strip.
+    """Um OBJ com todas as estradas de um mundo, um objeto nomeado por faixa.
 
-    The SDF picks them out with <submesh>, so the models keep the names they
-    always had and each one still costs exactly one visual.
+    O SDF as escolhe com `<submesh>`, então os modelos mantêm os nomes que sempre tiveram e cada
+    um ainda custa exatamente um visual.
     """
     verts, vseen, norms, nseen, body = [], {}, [], {}, []
     for group, (colour, tris) in groups.items():
@@ -1138,7 +1118,7 @@ def obj_mesh(groups, note, mtl):
 
 
 def mtl_text(groups, note):
-    """The colours the OBJ names, written once each in the order first used."""
+    """As cores que o OBJ nomeia, escritas uma vez cada, na ordem do primeiro uso."""
     out = [f"# {note}",
            "# Written by scripts/generate_agriculture_worlds.py, edit there.", ""]
     for colour in dict.fromkeys(c for c, _ in groups.values()):
@@ -1151,40 +1131,38 @@ def mtl_text(groups, note):
     return "\n".join(out)
 
 
-# What is laid over what, in metres above the ground. The order is the order a
-# road is actually built in, and it has to run by LAYER and not by road, which
-# is a lesson this file learned the hard way.
+# O que é posto sobre o quê, em metros acima do terreno. A ordem é a ordem em que uma estrada é
+# de fato construída, e tem de seguir por CAMADA e não por estrada, lição que este arquivo
+# aprendeu do jeito difícil.
 #
-# It used to stack each road as a unit -- earth, surface, line, then the next
-# road a millimetre higher -- and that buries the line of every carreador
-# under the surface of any carreador that joins it. Seven metres of running
-# surface crossing at 30 degrees covers fourteen metres of the line it
-# crosses, so the reference line down the middle of the main road simply
-# stopped for fourteen metres at each junction. A tractor following that line
-# by camera followed what was left of it, which was the joining road's line,
-# and drove off down the 30 degree road into the talhao.
+# Ele empilhava cada estrada como uma unidade -- terra, superfície, linha, depois a estrada
+# seguinte um milímetro acima -- e isso enterra a linha de cada carreador sob a superfície de
+# qualquer carreador que se junte a ele. Sete metros de superfície de rolagem cruzando a 30
+# graus cobrem catorze metros da linha que ela cruza, então a linha de referência no meio da
+# estrada principal simplesmente parava por catorze metros em cada junção. Um trator seguindo
+# essa linha pela câmera seguia o que sobrava, que era a linha da estrada que se junta, e saía
+# pela estrada de 30 graus para dentro do talhão.
 #
-# The half millimetre inside a band separates the roads from each other,
-# because coplanar faces are what a renderer cannot choose between -- two
-# carreadores crossing at the same height flicker as the camera moves.
+# O meio milímetro dentro de uma faixa separa as estradas entre si, porque faces coplanares são
+# o que um renderizador não consegue escolher -- dois carreadores se cruzando na mesma altura
+# tremulam quando a câmera se move.
 ROAD_LAYERS = {"earth": 0.010, "surface": 0.014}
 ROAD_LAYER_STEP = 0.0005
-PAINT_Z = 0.018          # the painted numbers, above every road surface
+PAINT_Z = 0.018          # os números pintados, acima de toda superfície de estrada
 
 
 def road_parts(world, tag, path, width, earth_half, lift, terrain):
-    """One carreador: the SDF models for it, and the mesh groups they name.
+    """Um carreador: os modelos SDF dele e os grupos da malha que eles nomeiam.
 
-    Two strips, each one visual: the bare earth the road wears, and the
-    running surface graded on top of it. Which height each goes to is
-    ROAD_LAYERS above; `lift` is this road's place within its band.
+    Duas faixas, cada uma um visual: a terra nua que a estrada desgasta e a superfície de
+    rolagem aplainada por cima dela. A altura de cada uma está em `ROAD_LAYERS` acima; `lift` é
+    o lugar desta estrada dentro da faixa dela.
 
-    A carreador carries nothing else. Two things were tried down the middle of
-    it and both came out again -- a painted white line, because nobody paints a
-    farm track, and then a pair of wheel ruts, because hard edged stripes
-    2.1 m apart read as paint too and match the bitola of no machine on the
-    property. What is left is what a graded road is: bare earth, and the
-    narrower strip down it that the traffic keeps smooth.
+    Um carreador não leva mais nada. Duas coisas foram tentadas no meio dele e as duas saíram --
+    uma linha branca pintada, porque ninguém pinta um caminho de fazenda, e depois um par de
+    trilhas de roda, porque listras de borda dura a 2,1 m uma da outra também parecem tinta e
+    não coincidem com a bitola de nenhuma máquina da propriedade. O que sobra é o que uma
+    estrada aplainada é: terra nua e a faixa mais estreita nela que o tráfego mantém lisa.
     """
     spine = road_spine(path)
     uri = f"model://carreador/meshes/{world}.obj"
@@ -1210,9 +1188,9 @@ def road_parts(world, tag, path, width, earth_half, lift, terrain):
     return parts, groups
 
 
-# Seven segments, and which of them each digit lights. Only the six digits that
-# appear in an angle on this farm are here; a KeyError is the right answer for
-# anything else, because the sign would be unreadable rather than wrong.
+# Sete segmentos, e quais deles cada dígito acende. Só os seis dígitos que aparecem num ângulo
+# desta fazenda estão aqui; um `KeyError` é a resposta certa para qualquer outro, porque a
+# placa ficaria ilegível em vez de errada.
 SEGMENTS = {
     "0": "abcdef", "3": "abcdg", "4": "bcfg",
     "5": "acdfg", "6": "acdefg", "9": "abcdfg",
@@ -1221,31 +1199,27 @@ SEGMENTS = {
 def ground_number(name, x, y, text, digit_h=4.2, digit_w=2.5, stroke=0.7, gap=1.0,
                   margin=0.9, board=(0.92, 0.90, 0.80), ink=(0.16, 0.08, 0.06),
                   z=PAINT_Z, terrain=None):
-    """A number painted flat on the ground: digits side by side, north up.
+    """Um número pintado deitado no chão: dígitos lado a lado, norte para cima.
 
-    The first version of this wrote the figures the way a carriageway writes
-    SLOW -- stretched, stacked one after another along the direction of travel,
-    each one read as you drive over it. On a road that is being looked at from
-    above rather than driven, that is unreadable: the digits arrive one at a
-    time and at whatever angle the curve happens to be pointing, so a 30 and a
-    90 look much the same.
+    A primeira versão escrevia as cifras do jeito que uma pista escreve SLOW -- esticadas,
+    empilhadas uma depois da outra no sentido da marcha, cada uma lida ao passar sobre ela.
+    Numa estrada que é vista de cima e não dirigida, isso é ilegível: os dígitos chegam um de
+    cada vez e no ângulo em que a curva por acaso aponta, então um 30 e um 90 se parecem muito.
 
-    So: digits side by side in one number, and every number on the property
-    laid out north up, whatever direction its road runs. Consistent orientation
-    is what makes a set of numbers scannable; a reader looking down at the farm
-    does not have to work out which way round each one is. The figures sit on a
-    painted board, because dark on pale reads at a glance and pale on red
-    latosol does not.
+    Então: dígitos lado a lado num só número, e todo número da propriedade disposto com o norte
+    para cima, qualquer que seja a direção da estrada. Uma orientação consistente é o que torna
+    um conjunto de números varrível com os olhos; quem olha a fazenda de cima não precisa
+    descobrir qual é o lado certo de cada um. As cifras ficam sobre uma placa pintada, porque
+    escuro sobre claro se lê de relance e claro sobre latossolo vermelho não.
 
-    The whole thing is under 10 m across the diagonal, which is what lets it
-    sit inside the 11 m of bare earth at any road heading.
+    O conjunto todo tem menos de 10 m na diagonal, o que permite que caiba nos 11 m de terra nua
+    em qualquer rumo de estrada.
     """
     n = len(text)
     span = n * digit_w + (n - 1) * gap
-    # One model pose, with the slabs as offsets inside it. That only works
-    # because the board is never put over a fold in the ground: the placement
-    # search below refuses those spots, so the whole number always lies on one
-    # plane.
+    # Uma pose de modelo, com as lajes como deslocamentos dentro dela. Isso só funciona porque a
+    # placa nunca é posta sobre uma dobra do terreno: a busca de posição abaixo recusa esses
+    # pontos, então o número inteiro sempre fica num plano só.
     placed = terrain.pose_on(x, y, 0.0) if terrain else (x, y, 0.0, 0.0, 0.0, 0.0)
     out = [f'<model name="{name}">', "  <static>true</static>",
            f"  {pose(*placed)}", '  <link name="link">']
@@ -1280,11 +1254,10 @@ def ground_number(name, x, y, text, digit_h=4.2, digit_w=2.5, stroke=0.7, gap=1.
 
 
 def plan_map(roads, matas, rows, props, paint=(), wood=(), cell=5.0):
-    """Rasterise what was just built, so the layout can be read without a GUI.
+    """Rasteriza o que acabou de ser construído, para o leiaute poder ser lido sem GUI.
 
-    This goes into the world's own header. A field of this shape is not
-    something anyone can check by reading six hundred poses, and it is not
-    something I can check by looking at a screen either.
+    Isto vai para o cabeçalho do próprio mundo. Um campo deste formato não é algo que alguém
+    confira lendo seiscentas poses, e nem eu consigo conferir olhando uma tela.
     """
     xs = [p[0] for r in roads for p in r] + [x for row in rows for x in (row[0], row[2])]
     ys = [p[1] for r in roads for p in r] + [y for row in rows for y in (row[1], row[3])]
@@ -1292,9 +1265,9 @@ def plan_map(roads, matas, rows, props, paint=(), wood=(), cell=5.0):
     nx, ny = int((x1 - x0) / cell) + 1, int((y1 - y0) / cell) + 1
     grid = [[" "] * nx for _ in range(ny)]
 
-    # Priority is this string's own order, so a road drawn over a row wins and
-    # the origin wins over everything. The three row characters sit together
-    # because they never share a cell: one talhão, one crown.
+    # A prioridade é a ordem desta string, então uma estrada desenhada sobre uma fileira vence e
+    # a origem vence tudo. Os três caracteres de fileira ficam juntos porque nunca dividem uma
+    # célula: um talhão, uma copa.
     order = " .:o*%#=+TO"
     ROW_CHAR = {"mesh": ":", "round": "o", "fruit": "*", "round_fruit": "%"}
 
@@ -1337,17 +1310,15 @@ def plan_map(roads, matas, rows, props, paint=(), wood=(), cell=5.0):
 
 
 def check_props(name, net, props, clear=15.0):
-    """Nothing a machine would have to drive round may stand in a carreador.
+    """Nada que uma máquina teria de contornar pode ficar num carreador.
 
-    The roads are the one part of these worlds a driverless vehicle is
-    entitled to: the talhoes are obstacles by definition and the headland is
-    where things get left, but a carreador with a water tank in it is a road
-    that does not go anywhere. Fifteen metres from the centreline is the 6 m
-    of bare earth the road wears, plus room to pass whatever is parked without
-    putting a wheel on the crop.
+    As estradas são a única parte destes mundos a que um veículo sem motorista tem direito: os
+    talhões são obstáculos por definição e a cabeceira é onde as coisas são deixadas, mas um
+    carreador com um tanque de água no meio é uma estrada que não vai a lugar nenhum. Quinze
+    metros da linha central são os 6 m de terra nua que a estrada desgasta, mais espaço para
+    passar pelo que estiver estacionado sem pôr uma roda na lavoura.
 
-    props is (name, x, y) for everything placed on the ground: the yard, the
-    machinery, the bins, the shed.
+    `props` é (nome, x, y) para tudo posto no chão: o pátio, as máquinas, as caixas, o galpão.
     """
     lines = [q for _, path in net for q in path.points(2.0)]
     grid = NearGrid(lines)
@@ -1358,71 +1329,62 @@ def check_props(name, net, props, clear=15.0):
 
 
 def check_network(name, net, bend_spacing=0.0, oblique=False, pairs=False):
-    """Refuse to build a world whose roads are wrong where it does not show.
+    """Recusa construir um mundo cujas estradas estão erradas onde isso não aparece.
 
-    Every one of these was a real fault before it was a check. citrus_farm_60's
-    third carreador left the property through the southern boundary, ran 180 of
-    its 270 m outside the hexagon and came back in: on the plan that is a road
-    and a boundary crossing twice with a lens between them, which reads as a
-    figure of eight, and in the world it is a road through nobody's field. It
-    survived because close_to_boundary only ever looks at where a road *ends*.
-    Nothing looked at where it had been.
+    Cada uma destas foi uma falha real antes de ser uma verificação. O terceiro carreador do
+    citrus_farm_60 saía da propriedade pelo limite sul, corria 180 dos seus 270 m fora do
+    hexágono e voltava: na planta isso é uma estrada e um limite que se cruzam duas vezes com
+    uma lente entre eles, o que parece um oito, e no mundo é uma estrada pelo campo de ninguém.
+    Ela sobreviveu porque `close_to_boundary` só olha onde a estrada *termina*. Nada olhava
+    por onde ela tinha passado.
 
-    The three hard rules, in the order they are cheapest to break:
+    As três regras duras, na ordem em que são mais baratas de quebrar:
 
-      inside      a road's centreline stays within the boundary. Six metres of
-                  tolerance, because the last point of a road sits on the
-                  boundary by construction and floating point puts it either
-                  side of the line.
-      ends on it  both ends are on the boundary, or in a T against another
-                  carreador. A road that stops with nothing at the end of it
-                  is a road a machine has to reverse out of; a road that ends
-                  on another one has joined the network.
-      not beside  no road runs within 32 m of another one, or of the
-                  boundary, while pointing the same way, for more than 25 m.
-                  Crossing is a junction and junctions are the point; running
-                  alongside is one wide mess with a strip of hedge stranded
-                  down the middle. The boundary counts: a carreador laid 20 m
-                  inside the perimeter is the same mess, and the first cut of
-                  this check let that through by comparing carreadores only.
-      not square  optional, and only the mixed world asks for it: a road may
-                  not meet the boundary within 15 degrees of a right angle. A carreador ending square on the boundary draws
-                  a corner exactly like a 90 degree bend, and that corner
-                  carries no number, so a world that paints 90 on its bends is
-                  telling the reader that the unpainted right angles are
-                  something else. They are not. On the mixed world this is
-                  what drove the boundary away from being a square: an
-                  irregular ring has edges at several headings and a road can
-                  always meet one of them at 30 or 60. The single angle worlds
-                  do not take this rule either, and for the same reason they
-                  do not take the spacing one: in a world where every bend is
-                  a 90 and every corner is painted 90, a road meeting the
-                  boundary square is the world being consistent with itself.
-      on the grid  the carreador that carries the origin runs along x, to
-                  within 3 degrees. The vehicle spawns at 0 0 pointing down
-                  +x with no per-world yaw, so the road under it has to point
-                  that way too: a machine that starts 20 degrees across its
-                  own carreador is a machine whose first move is a correction.
-      both forms  optional: every angle appears both rounded and as a sharp
-                  corner. A farm turns both ways -- bladed round where there
-                  is room, cut square where two blocks meet -- and a world
-                  meant to ask what a bend costs has to carry both of each,
-                  or it is only ever asking about one of them.
-      bends apart  optional, and only the mixed world asks for it: consecutive
-                  bends must leave `bend_spacing` metres of real straight
-                  between them, real meaning after both have eaten their
-                  radius * tan(half the turn) off the straight that joins them.
-                  A 60 and a 90 of radius 24 that are 60 m apart on paper are
-                  22 m apart on the ground, and two arcs that close together
-                  read as one long sweep — which is exactly what a 90 must not
-                  look like in the world whose point is telling angles apart.
-                  The single angle worlds do not take this rule: three 30s back
-                  to back is how a road of 30s turns a corner there.
+      `inside`      a linha central de uma estrada fica dentro do limite. Seis metros de
+                  tolerância, porque o último ponto de uma estrada fica no limite por
+                  construção e o ponto flutuante o põe de um lado ou do outro da linha.
+      `ends on it`  as duas pontas estão no limite, ou num T contra outro carreador. Uma estrada
+                  que para sem nada no fim é uma estrada de onde a máquina tem de sair de
+                  ré; uma estrada que termina em outra entrou na rede.
+      `not beside`  nenhuma estrada corre a menos de 32 m de outra, ou do limite, apontando para
+                  o mesmo lado, por mais de 25 m. Cruzar é uma junção e junções são o ponto;
+                  correr ao lado é uma bagunça larga com uma tira de sebe encalhada no meio.
+                  O limite conta: um carreador posto 20 m dentro do perímetro é a mesma
+                  bagunça, e a primeira versão desta verificação deixava isso passar por
+                  comparar só carreadores.
+      `not square`  opcional, e só o mundo misto pede: uma estrada não pode encontrar o limite a
+                  menos de 15 graus de um ângulo reto. Um carreador que termina em esquadro no
+                  limite desenha uma esquina exatamente como uma curva de 90 graus, e essa
+                  esquina não leva número, então um mundo que pinta 90 nas curvas está
+                  dizendo ao leitor que os ângulos retos sem pintura são outra coisa. Não são.
+                  No mundo misto foi isto que afastou o limite de ser um quadrado: um anel
+                  irregular tem arestas em vários rumos e uma estrada sempre consegue
+                  encontrar uma delas a 30 ou 60. Os mundos de ângulo único também não adotam
+                  esta regra, e pelo mesmo motivo não adotam a do espaçamento: num mundo em que
+                  toda curva é de 90 e toda esquina é pintada 90, uma estrada que encontra o
+                  limite em esquadro é o mundo sendo coerente consigo mesmo.
+      `on the grid` o carreador que carrega a origem corre ao longo de x, com 3 graus de
+                  tolerância. O veículo nasce em 0 0 apontando para +x sem yaw por mundo, então
+                  a estrada sob ele tem de apontar para lá também: uma máquina que começa 20
+                  graus atravessada no próprio carreador é uma máquina cuja primeira manobra é
+                  uma correção.
+      `both forms`  opcional: cada ângulo aparece tanto arredondado quanto como esquina viva. Uma
+                  fazenda vira dos dois jeitos -- abaulada onde há espaço, cortada em esquadro
+                  onde dois blocos se encontram -- e um mundo feito para perguntar o que uma
+                  curva custa tem de levar os dois de cada, ou só pergunta sobre um deles.
+      `bends apart` opcional, e só o mundo misto pede: curvas consecutivas têm de deixar
+                  `bend_spacing` metros de reta de verdade entre elas, onde de verdade quer
+                  dizer depois de as duas terem comido o raio * tan(metade da curva) da reta que
+                  as une. Um 60 e um 90 de raio 24 a 60 m um do outro no papel ficam a 22 m no
+                  terreno, e dois arcos tão próximos parecem uma varredura longa -- exatamente o
+                  que um 90 não pode parecer no mundo cujo objetivo é distinguir ângulos. Os
+                  mundos de ângulo único não adotam esta regra: três 30 em seguida é como uma
+                  estrada de 30 vira uma esquina ali.
 
-    Crossing another carreador is only reported, not enforced: a road that runs
-    edge to edge and meets nothing but the perimeter is thinner than the design
-    wants, and citrus_farm_90's south road is one, but it is connected and it
-    is not wrong the way the three above are wrong.
+    Cruzar outro carreador é só relatado, não imposto: uma estrada que corre de borda a borda e
+    não encontra nada além do perímetro é mais fina que o projeto quer, e a estrada sul do
+    citrus_farm_90 é uma, mas ela está conectada e não está errada do jeito que as três acima
+    estão.
     """
     pts = {tag: p.points(1.0) for tag, p in net}
     bound = pts["perimeter"]
@@ -1439,7 +1401,7 @@ def check_network(name, net, bend_spacing=0.0, oblique=False, pairs=False):
         return math.atan2(b[1] - a[1], b[0] - a[0])
 
     def square_at(line, i, other):
-        """The angle this point of `line` makes with the nearest bit of `other`."""
+        """O ângulo que este ponto de `line` faz com o trecho mais próximo de `other`."""
         j = min(range(len(other)), key=lambda k: math.dist(line[i], other[k]))
         d = abs((heading(line, i) - heading(other, j) + math.pi)
                 % (2 * math.pi) - math.pi)
@@ -1458,10 +1420,9 @@ def check_network(name, net, bend_spacing=0.0, oblique=False, pairs=False):
         if stray > 6.0:
             bad.append(f"{tag} leaves the property by {stray:.0f} m")
         for end, i in (("starts", 0), ("ends", len(line) - 1)):
-            # On the boundary, or on another carreador. A road that finishes
-            # in a T against a road that carries on both ways has not ended in
-            # the middle of a field, it has joined the network; only a road
-            # that stops with nothing at the end of it has.
+            # No limite, ou noutro carreador. Uma estrada que termina em T contra uma estrada que
+            # segue para os dois lados não terminou no meio de um campo, entrou na rede; só uma
+            # estrada que para sem nada no fim terminou.
             gap = min(math.dist(line[i], b) for b in bound)
             joined = min((math.dist(line[i], q) for o in roads if o != tag
                           for q in pts[o]), default=1e9)
@@ -1486,16 +1447,15 @@ def check_network(name, net, bend_spacing=0.0, oblique=False, pairs=False):
             if side > 25:
                 bad.append(f"{a} and {b} run alongside each other for {side} m")
 
-    # The origin, and what the vehicle finds when it spawns there.
+    # A origem, e o que o veículo encontra quando nasce ali.
     on_grid = [(t, p) for t, p in ((t, pts[t]) for t in roads)
                if min(math.hypot(q[0], q[1]) for q in p) < 3.5]
     if not on_grid:
         near = min(min(math.hypot(q[0], q[1]) for q in pts[t]) for t in roads)
         bad.append(f"the origin is {near:.0f} m from the nearest carreador")
     else:
-        # One of them has to run along x, not all of them: a crossroads at the
-        # origin puts two roads through it at right angles, and the vehicle is
-        # standing on both.
+        # Um deles tem de correr ao longo de x, não todos: um cruzamento na origem põe duas
+        # estradas passando por ela em ângulo reto, e o veículo está sobre as duas.
         along = []
         for tag, line in on_grid:
             i = min(range(len(line)), key=lambda k: math.hypot(line[k][0], line[k][1]))
@@ -1507,11 +1467,10 @@ def check_network(name, net, bend_spacing=0.0, oblique=False, pairs=False):
                        f"so a vehicle spawned there is across its own carreador")
 
     if pairs:
-        # The boundary counts. A property is squared off at its corners far
-        # more often than a carreador is, so the right angles of a farm live
-        # out on the edge and the angles that cut its blocks up live inside:
-        # the mixed world takes its two 90s off the perimeter, one bladed
-        # round and one cut square, and its 30s and 60s off the diagonals.
+        # O limite conta. Uma propriedade é cortada em esquadro nos cantos muito mais vezes que
+        # um carreador, então os ângulos retos de uma fazenda ficam na borda e os ângulos que
+        # cortam os blocos ficam por dentro: o mundo misto tira os dois 90 do perímetro, um
+        # abaulado e um cortado em esquadro, e os 30 e 60 das diagonais.
         seen = {}
         for tag, path in net:
             for deg, radius in path.turns():
@@ -1542,9 +1501,8 @@ def check_network(name, net, bend_spacing=0.0, oblique=False, pairs=False):
     for tag in roads:
         line = pts[tag]
         joined = any(meets(line, pts[o]) for o in roads if o != tag)
-        # A T counts. A road that finishes on another one has met it, and
-        # whether the polyline's last point lands a millimetre short of the
-        # other centreline is arithmetic, not geography.
+        # Um T conta. Uma estrada que termina em outra a encontrou, e se o último ponto da
+        # poligonal cai um milímetro antes da outra linha central é aritmética, não geografia.
         if not joined:
             joined = any(math.dist(line[i], q) < 4.0
                          for i in (0, len(line) - 1)
@@ -1554,7 +1512,7 @@ def check_network(name, net, bend_spacing=0.0, oblique=False, pairs=False):
 
 
 def segments_cross(p, q, r, s):
-    """True if pq and rs meet. Endpoints count: roads are joined, not welded."""
+    """Verdadeiro se pq e rs se encontram. As pontas contam: estradas são unidas, não soldadas."""
     d = (q[0] - p[0]) * (s[1] - r[1]) - (q[1] - p[1]) * (s[0] - r[0])
     if abs(d) < 1e-12:
         return False
@@ -1566,25 +1524,23 @@ def segments_cross(p, q, r, s):
 def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
                 bend_spacing=0.0, oblique=False, pairs=False, extent=260.0,
                 woods=None, wood_trees=30):
-    """The whole property: ground, roads, talhões, mata, machinery.
+    """A propriedade inteira: terreno, estradas, talhões, mata, máquinas.
 
-    network is the road layout, as (tag, Path). One tag must be
-    "perimeter", the boundary, which closes on itself; one must be "main", the
-    carreador the yard stands on, which has to pass through the origin. blocks
-    is the planting, as (tag, centre x, centre y, half length, half width, row
-    direction), tried in order with the first claim winning.
+    `network` é o leiaute de estradas, como (tag, Path). Uma tag tem de ser "perimeter", o
+    limite, que se fecha sobre si mesmo; uma tem de ser "main", o carreador em que o pátio
+    está, que tem de passar pela origem. `blocks` é o plantio, como (tag, x do centro, y do
+    centro, meio comprimento, meia largura, direção das fileiras), tentados em ordem e vencendo
+    a primeira reivindicação.
 
-    Everything else is shared between the worlds built from this: the ground,
-    the mata, the way rows are cut to whatever the roads leave. Change the road
-    layout and nothing else, and what a robot does differently is down to the
-    roads.
+    Todo o resto é compartilhado entre os mundos construídos a partir disto: o terreno, a mata,
+    o jeito de as fileiras serem cortadas no que as estradas deixam. Mude só o leiaute das
+    estradas e nada mais, e o que um robô faz de diferente se deve às estradas.
 
-    Which crown each talhão is planted with is PLANTING, and it is the same
-    table in all three worlds: eleven blocks of baked mesh runs, two of round
-    ellipsoids, one of fruiting citrus, and every mata of forest_tree. Four
-    tree models in one property, so that two of them can be compared without
-    leaving the world — and so that the cost of the expensive ones is bounded
-    by a block rather than spread over a property.
+    Com qual copa cada talhão é plantado está em `PLANTING`, e é a mesma tabela nos três mundos:
+    onze blocos de sequências de malha assada, dois de elipsoides redondos, um de citros com
+    frutos, e toda mata de `forest_tree`. Quatro modelos de árvore numa propriedade, para dois
+    deles poderem ser comparados sem sair do mundo -- e para o custo dos caros ser limitado por
+    um bloco e não espalhado por uma propriedade.
     """
     check_network(name, network, bend_spacing, oblique, pairs)
 
@@ -1592,32 +1548,29 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
     TREE_SPACING = 3.0
     CANOPY_W = 3.5
 
-    # One carreador width for the whole property: 7 m of running surface inside
-    # 11 m of bare earth, hedge to hedge. Uniform, because the widest thing
-    # that uses a farm road is the same everywhere.
+    # Uma largura de carreador para a propriedade inteira: 7 m de superfície de rolagem dentro de
+    # 11 m de terra nua, de sebe a sebe. Uniforme, porque a coisa mais larga que usa uma estrada
+    # de fazenda é a mesma em toda parte.
     ROAD_W, SHOULDER = 7.0, 2.0
     CLEAR = ROAD_W / 2 + SHOULDER + 0.5 + CANOPY_W / 2
 
-    # --- the lie of the land ------------------------------------------------
-    # A profile east to west, in nodes the ground passes through: a face
-    # falling 11% off the western boundary, a valley floor around x = -90, then
-    # a 10% climb to a ridge at x = 160 and away off the eastern edge. Sixteen
-    # metres of relief, which is what it takes to be unmistakable at this size;
-    # the first attempt at eight was there and could not be seen. Nothing here
-    # is steep for citrus, which is planted on worse, and the yard around the
-    # origin is levelled, as a yard is.
-    # The same profile whatever the property is, stretched to reach across
-    # it: `extent` is how far the ground has to go from the origin, and a
-    # world larger than the 260 m the profile was written for gets the end
-    # grades carried on rather than a new landform. Ground that stops before
-    # the boundary does is a hole a machine falls through.
+    # --- o relevo ------------------------------------------------------------
+    # Um perfil de leste a oeste, em nós por onde o terreno passa: uma encosta caindo 11% a
+    # partir do limite oeste, um fundo de vale perto de x = -90, depois uma subida de 10% até
+    # uma crista em x = 160 e descendo além da borda leste. Dezesseis metros de relevo, que é o
+    # que é preciso para ser inconfundível neste tamanho; a primeira tentativa, com oito, estava
+    # lá e não dava para ver. Nada aqui é íngreme para citros, que são plantados em pior, e o
+    # pátio em volta da origem é nivelado, como um pátio é.
+    # O mesmo perfil seja qual for a propriedade, esticado para alcançá-la: `extent` é quanto o
+    # terreno tem de ir a partir da origem, e um mundo maior que os 260 m para os quais o perfil
+    # foi escrito recebe os declives das pontas prolongados e não um relevo novo. Terreno que
+    # para antes do limite é um buraco por onde uma máquina cai.
     #
-    # citrus_farm asks for 460 m against a property that reaches 332, and the
-    # reason is the view from the air. Ground that stops eight metres past the
-    # last tree is a cliff at the edge of the world, and any aerial shot of
-    # the place shows the whole farm floating on nothing. It costs no entities
-    # to fix -- the slabs are the same boxes, longer -- and a farm ought to sit
-    # in a landscape rather than on a table.
+    # citrus_farm pede 460 m para uma propriedade que chega a 332, e o motivo é a vista aérea.
+    # Terreno que termina oito metros depois da última árvore é um penhasco na borda do mundo, e
+    # qualquer foto aérea do lugar mostra a fazenda toda flutuando sobre o nada. Corrigir não
+    # custa entidades -- as lajes são as mesmas caixas, mais compridas -- e uma fazenda deve
+    # ficar numa paisagem e não sobre uma mesa.
     profile = [(-260, 14.0), (-195, 7.0), (-140, 1.0), (-90, -2.5),
                (-46, -1.2), (-25, 0.0), (25, 0.0), (46, 1.4),
                (110, 8.0), (160, 10.5), (195, 7.0), (260, 2.0)]
@@ -1629,48 +1582,43 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
                    + [(extent, profile[-1][1] + east_grade * (extent - 260.0))])
     terrain = Terrain(profile, y_half=max(250.0, extent))
 
-    # --- the roads ----------------------------------------------------------
-    # Nothing is allowed to end in the middle of a field: every road runs from
-    # one edge of the property to another or from one road to another, and the
-    # perimeter closes on itself, so there is nowhere a machine has to reverse
-    # out of.
+    # --- as estradas ---------------------------------------------------------
+    # Nada pode terminar no meio de um campo: toda estrada vai de uma borda da propriedade a
+    # outra ou de uma estrada a outra, e o perímetro se fecha sobre si mesmo, então não há onde
+    # uma máquina tenha de sair de ré.
     by_tag = {tag: path for tag, path in network}
     perimeter, main = by_tag["perimeter"], by_tag["main"]
     bound = perimeter.points(2.0)
     roads = [(tag, path, ROAD_W, SHOULDER, CLEAR) for tag, path in network]
 
-    # --- the mata -----------------------------------------------------------
-    # Where the woods are. The default is a patch in each block, in the slack
-    # ground a loop leaves in its corner, which is what the through-road
-    # worlds were laid out around.
+    # --- a mata --------------------------------------------------------------
+    # Onde ficam as matas. O padrão é uma mancha em cada bloco, no terreno sobrando que um laço
+    # deixa no canto, em torno do que os mundos de estrada passante foram desenhados.
     #
-    # `woods` overrides it, and the crossroads world uses that to put the mata
-    # where a mata actually is: outside the fence, all the way round. A block
-    # of citrus with a wood in the middle of it is a block somebody planted
-    # around a wood, which happens, but four of them is four times a
-    # coincidence. What the aerial photographs show is the planted ground
-    # stopping at the property line and the trees taking over outside it.
+    # `woods` o sobrescreve, e o mundo do cruzamento usa isso para pôr a mata onde uma mata de
+    # fato fica: fora da cerca, em volta de tudo. Um bloco de citros com um mato no meio é um
+    # bloco que alguém plantou em volta de um mato, o que acontece, mas quatro deles são quatro
+    # vezes uma coincidência. O que as fotografias aéreas mostram é o terreno plantado parando
+    # na divisa da propriedade e as árvores tomando conta do lado de fora.
     #
-    # `wood_trees` is how many go in each patch. A belt is many patches and
-    # wants fewer in each: thirty apiece across twelve patches is 360 trees at
-    # three visuals each, which is half the world again for scenery nothing
-    # drives through.
+    # `wood_trees` é quantas entram em cada mancha. Um cinturão são muitas manchas e quer menos
+    # em cada: trinta em cada uma de doze manchas são 360 árvores a três visuais cada, que é
+    # metade do mundo de novo em cenário por onde nada passa.
     matas = woods if woods is not None else [
         blob(150, 150, 26, 20, seed=11),
         blob(-150, 148, 24, 19, seed=22),
         blob(150, -150, 25, 18, seed=33),
         blob(-146, -150, 23, 20, seed=44)]
 
-    # --- the yard -----------------------------------------------------------
-    # Chosen here, before anything is planted, because the clearing that keeps
-    # the rows out of it is derived from where it lands. The first cut of this
-    # searched for the yard after the planting was already laid, so the yard
-    # moved and the clearing did not: a shed with citrus four metres from its
-    # wall, which is not a yard, it is a shed somebody dropped in a block.
+    # --- o pátio -------------------------------------------------------------
+    # Escolhido aqui, antes de qualquer coisa ser plantada, porque a clareira que mantém as
+    # fileiras fora dele é derivada de onde ele cai. A primeira versão procurava o pátio depois
+    # de o plantio já estar posto, então o pátio mudava e a clareira não: um galpão com citros a
+    # quatro metros da parede, o que não é um pátio, é um galpão que alguém largou num bloco.
     #
-    # The shape is fixed -- the trailer hitched behind the tractor, the shed
-    # north of both, the tank at the far side, the bins by the gate -- and only
-    # the anchor is searched for, near the origin, out of the roads.
+    # A forma é fixa -- a carreta engatada atrás do trator, o galpão ao norte dos dois, o tanque
+    # no lado oposto, as caixas junto ao portão -- e só a âncora é procurada, perto da origem,
+    # longe das estradas.
     YARD = {"tractor": (4.0, 0.5), "trailer": (-1.9, 0.5), "shed": (0.0, 8.0),
             "tank": (-16.0, 0.0), "bin0": (13.0, -3.0), "bin1": (13.0, -1.4),
             "bin2": (11.3, -3.0)}
@@ -1702,8 +1650,8 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
         raise ValueError(f"{name}: nowhere near the origin to put the yard")
     yard = yard_at(*anchor)
 
-    # The clearing is the yard's own ground: nothing is planted inside it, and
-    # it is centred on where the yard actually went.
+    # A clareira é o terreno do próprio pátio: nada é plantado dentro dela, e ela é centrada onde
+    # o pátio realmente foi parar.
     clearings = [(anchor[0], anchor[1], YARD_CLEAR)]
 
     road_grids = [(NearGrid(p.points(0.75)), clear)
@@ -1711,7 +1659,7 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
 
     parts = [terrain.slabs("terrain", C_GRASS)]
 
-    # --- the mata, planted --------------------------------------------------
+    # --- a mata, plantada ----------------------------------------------------
     rng = random.Random(5150)
     mata_pts: list[tuple[float, float]] = []
     wood: list[tuple[str, float, float, float, float]] = []
@@ -1739,7 +1687,7 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
 
     def plantable(x, y, mine):
         if not in_polygon(x, y, bound):
-            return False            # outside the property boundary
+            return False                        # fora do limite da propriedade
         for tag, bx, by, hl, hw, yaw in blocks:
             if tag == mine:
                 break
@@ -1763,11 +1711,10 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
 
     row_segments = []
     hedge_shapes: dict[str, list[str]] = {"ne": [], "nw": [], "se": [], "sw": []}
-    # sorted, not set order: a set of strings iterates in whatever order this
-    # process's hash seed gives it, and the models come out of this dict in
-    # that order. Two runs of the generator then write the same world with its
-    # blocks in different places in the file, which is a diff every time and a
-    # generator that cannot be checked against what is committed.
+    # ordenado, não na ordem do conjunto: um conjunto de strings itera na ordem que a semente de
+    # hash deste processo dá, e os modelos saem deste dicionário nessa ordem. Duas execuções do
+    # gerador escrevem então o mesmo mundo com os blocos em lugares diferentes do arquivo, o que
+    # é um diff a cada vez e um gerador que não pode ser conferido com o que está versionado.
     special_shapes: dict[str, list[str]] = {k: [] for k in sorted(set(PLANTING.values()))}
     seed = 0
     for tag, bx, by, hl, hw, yaw in blocks:
@@ -1777,15 +1724,15 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
             across = -hw + ROW_SPACING * (r + 0.5)
             run_start = None
             run_strip = None
-            sample_step = 0.5          # not `step`: that is the physics step
+            sample_step = 0.5                      # não `step`: esse é o passo da física
             samples = int(2 * hl / sample_step) + 1
             for k in range(samples + 1):
                 along = -hl + k * sample_step
                 x = bx + along * c - across * s
                 y = by + along * s + across * c
-                # A row is broken at a fold in the ground as well as at a road:
-                # one hedge, one plane. Rows ending on the crest of a rise is
-                # what a field on rolling ground looks like anyway.
+                # Uma fileira é cortada numa dobra do terreno e também numa estrada: uma sebe, um
+                # plano. Fileiras que terminam na crista de uma elevação são, de qualquer jeito,
+                # o que um campo em terreno ondulado parece.
                 here = terrain.strip(x)
                 ok = plantable(x, y, tag) if k < samples else False
                 if ok and run_strip is not None and here != run_strip:
@@ -1801,20 +1748,19 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
                                              kind=kind)
                     if shapes:
                         if kind == "mesh":
-                            # grouped by where the row is, not by which
-                            # block claimed it: block tags differ between
-                            # layouts, quadrants do not
+                            # agrupado pelo lugar da fileira, não pelo bloco que a reivindicou:
+                            # as tags de bloco diferem entre leiautes, os quadrantes não
                             quad = (("n" if y >= 0 else "s")
                                     + ("e" if x >= 0 else "w"))
                             hedge_shapes[quad].extend(shapes)
                         else:
-                            # One model per crown that is not the cheap one, so
-                            # what it costs can be counted, timed and taken out
-                            # again without touching the quadrant it lies in.
+                            # Um modelo por copa que não seja a barata, para o que ela custa
+                            # poder ser contado, medido e retirado sem tocar o quadrante em que
+                            # ela está.
                             special_shapes[kind].extend(shapes)
                         row_segments.append((*run_start, x, y, kind))
                     run_start, run_strip = None, None
-                    if ok:                       # a fold, not an obstacle
+                    if ok:                       # uma dobra, não um obstáculo
                         run_start, run_strip = (x, y), here
 
     for quad, shapes in hedge_shapes.items():
@@ -1824,14 +1770,14 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
         if shapes:
             parts.append(hedges(f"hedges_{kind}", shapes))
 
-    # --- the roads, drawn ---------------------------------------------------
-    # One mesh for all of them, a named strip inside it per layer per road.
-    # What goes above what is ROAD_LAYERS: by layer across every road, so that
-    # no carreador's surface is ever laid over another carreador's line.
+    # --- as estradas, desenhadas --------------------------------------------
+    # Uma malha para todas elas, uma faixa nomeada dentro dela por camada por estrada. O que vai
+    # acima do quê está em `ROAD_LAYERS`: por camada em todas as estradas, para a superfície de
+    # nenhum carreador ficar jamais sobre a linha de outro carreador.
     road_groups = {}
-    # The bands only hold if the tallest road in the lowest band still clears
-    # the next band up. With seven roads that is 3 mm of stagger against 4 mm
-    # of band, which works and would not survive nine.
+    # As faixas só se sustentam se a estrada mais alta da faixa mais baixa ainda ficar abaixo da
+    # faixa seguinte. Com sete estradas são 3 mm de escalonamento contra 4 mm de faixa, o que
+    # funciona e não sobreviveria a nove.
     top = ROAD_LAYER_STEP * (len(roads) - 1)
     bands = sorted(ROAD_LAYERS.values()) + [PAINT_Z]
     assert all(b - a > top for a, b in zip(bands, bands[1:])), (
@@ -1843,25 +1789,22 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
         parts += models
         road_groups.update(groups)
 
-    # --- the angle of every bend, painted on the bend itself ---------------
-    # The signposts are gone; this is what replaced them. A number on the
-    # ground cannot be knocked over, does not need a post standing in the
-    # shoulder, and is legible from directly above, which is where anyone
-    # looking at a whole block is looking from.
+    # --- o ângulo de cada curva, pintado na própria curva -------------------
+    # As placas se foram; isto é o que as substituiu. Um número no chão não pode ser derrubado,
+    # não precisa de um poste no acostamento e é legível diretamente de cima, que é de onde olha
+    # quem examina um bloco inteiro.
     #
-    # It goes in the middle of the arc, and used to go 28 m back along the
-    # straight that led into it. Setting it back is what a road sign does,
-    # because a driver needs warning; a number painted on the ground is not a
-    # warning, it is a label, and a label sitting on an empty straight has to
-    # be matched to a bend by eye. Half the time the wrong one: on a property
-    # of mixed angles the number before a bend and the number after it are
-    # both visible from the same place, and nothing says which belongs to
-    # which. On the arc there is no question -- the figure is lying in the
-    # curve it names.
+    # Ele vai no meio do arco, e antes ia 28 m atrás, ao longo da reta que levava até ele.
+    # Recuá-lo é o que uma placa de trânsito faz, porque o motorista precisa de aviso; um número
+    # pintado no chão não é um aviso, é um rótulo, e um rótulo numa reta vazia tem de ser
+    # associado a uma curva a olho. Metade das vezes com a errada: numa propriedade de ângulos
+    # mistos o número antes de uma curva e o depois dela estão ambos visíveis do mesmo lugar, e
+    # nada diz qual pertence a qual. No arco não há dúvida -- a cifra está deitada na curva que
+    # ela nomeia.
     #
-    # The arc is also the widest, flattest piece of road available: the bare
-    # earth runs 11 m through the bend as everywhere else, and the board is
-    # 7.8 by 6.0 m, so it lies inside it at any heading.
+    # O arco também é o trecho de estrada mais largo e plano disponível: a terra nua corre 11 m
+    # pela curva como em toda parte, e a placa tem 7,8 por 6,0 m, então cabe dentro dela em
+    # qualquer rumo.
     paint = []
     others = {tag: path.points(2.0) for tag, path in network}
     for tag, path in network:
@@ -1871,12 +1814,12 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
             cx, cy, sign = path._arc_centre(mx, my, mh, radius, turn)
 
             def on_arc(frac):
-                """A point along the bend: 0 at its mouth, 1 at its exit."""
+                """Um ponto ao longo da curva: 0 na entrada, 1 na saída."""
                 a = mh + turn * frac
                 return cx + sign * radius * math.sin(a), cy - sign * radius * math.cos(a)
 
             def past(end, metres):
-                """`metres` beyond one end of the arc, along the straight."""
+                """`metres` além de uma ponta do arco, ao longo da reta."""
                 if end < 0:
                     return (mx - metres * math.cos(mh), my - metres * math.sin(mh))
                 h = mh + turn
@@ -1891,36 +1834,32 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
             def on_fold(spot):
                 return any(abs(spot[0] - f) < 6.0 for f, _ in terrain.nodes)
 
-            # In the middle of the bend, and then either side of it, and only
-            # then a little past its ends. A number lying across a crossroads
-            # is the one placement that cannot be read at all, so the search
-            # gives that up last: 22 m of clearance is the board's own 5 m plus
-            # the 11 m of bare earth the other road is wearing, plus room to
-            # see which road the number belongs to.
-            # The middle of the bend first, then either side of it along the
-            # arc, and only then a few metres past its ends -- never far enough
-            # to stop looking like the number of that bend. Twelve metres is
-            # the cap, which on the shortest arc here is the board's own
-            # length: past that it would read as belonging to the straight.
+            # No meio da curva, depois de cada lado dela, e só então um pouco além das pontas. Um
+            # número deitado atravessando um cruzamento é a única posição que não se lê de jeito
+            # nenhum, então a busca desiste dela por último: 22 m de folga são os 5 m da própria
+            # placa mais os 11 m de terra nua que a outra estrada desgasta, mais espaço para ver
+            # a qual estrada o número pertence.
+            # Primeiro o meio da curva, depois cada lado dele ao longo do arco, e só então alguns
+            # metros além das pontas -- nunca longe o bastante para deixar de parecer o número
+            # daquela curva. Doze metros é o teto, que no arco mais curto daqui é o próprio
+            # comprimento da placa: além disso pareceria pertencer à reta.
             spots = ([on_arc(f) for f in (0.5, 0.42, 0.58, 0.34, 0.66,
                                           0.26, 0.74, 0.18, 0.82)]
                      + [past(e, m) for m in (6.0, 12.0, 18.0) for e in (1, -1)])
-            # Every number the same size, always. The board used to shrink to
-            # 68% when the search could not find a spot clear of a fold, and a
-            # property whose numbers are two different sizes reads as though
-            # the smaller ones meant something else. Size is not information
-            # here; the digits are. So the search moves the board and never
-            # resizes it, and it has more places to try instead.
+            # Todo número do mesmo tamanho, sempre. A placa encolhia para 68% quando a busca não
+            # achava um ponto livre de dobra, e uma propriedade cujos números têm dois tamanhos
+            # parece dizer que os menores significam outra coisa. Tamanho não é informação aqui;
+            # os dígitos são. Então a busca move a placa e nunca a redimensiona, e tem mais
+            # lugares para tentar.
             side = 0.0
             best = next((q for q in spots
                          if clear_of_roads(q) > 22.0 and not on_fold(q)), None)
             if best is None:
-                # A bend with a fold through every one of those spots. Keep
-                # the junction rule, give up the fold rule, and set the board
-                # beside the crease rather than across it, so that all of it
-                # still lies on one plane. No spot on this property needs
-                # this any more -- the widened list above always finds one --
-                # but a bend put on a crease later would.
+                # Uma curva com uma dobra passando por todos esses pontos. Mantém a regra da
+                # junção, abre mão da regra da dobra e põe a placa ao lado do vinco e não
+                # atravessada nele, para que ela toda ainda fique num plano só. Nenhum ponto desta
+                # propriedade precisa mais disso -- a lista ampliada acima sempre acha um --, mas
+                # uma curva posta num vinco mais tarde precisaria.
                 best = next((q for q in spots if clear_of_roads(q) > 22.0), None)
                 if best is not None:
                     near = min((f for f, _ in terrain.nodes),
@@ -1928,9 +1867,9 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
                     gap = best[0] - near
                     side = math.copysign(2.85, gap if abs(gap) > 0.05 else 1.0)
             if best is None:
-                # Nowhere near this bend is clear of the road it crosses.
-                # Take the clearest spot there is: a number beside a junction
-                # is still readable, and a missing one is not.
+                # Nada perto desta curva está livre da estrada que ela cruza. Toma o ponto mais
+                # livre que houver: um número ao lado de uma junção ainda se lê, e um número
+                # ausente não.
                 best = max(spots, key=clear_of_roads)
             px = best[0] - math.sin(mh + turn / 2) * side
             py = best[1] + math.cos(mh + turn / 2) * side
@@ -1938,36 +1877,33 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
                                        f"{abs(int(round(deg)))}", terrain=terrain))
             paint.append((px, py))
 
-    # --- machinery, on the carreadores and nowhere else ---------------------
+    # --- máquinas, nos carreadores e em nenhum outro lugar -------------------
     def beside(path, distance, offset):
         x, y, h = path.at(distance)
         return x - math.sin(h) * offset, y + math.cos(h) * offset, h
 
     def standing(uri, name, x, y, yaw=0.0):
-        """Anything that rests on the ground rather than growing out of it: it
-        takes the slope with it, the way a parked machine does."""
+        """Qualquer coisa que repousa no chão em vez de crescer dele: acompanha a encosta, do
+        jeito que uma máquina estacionada faz."""
         return include(uri, name, *terrain.pose_on(x, y, yaw))
 
-    # The tractor and its trailer, parked in the yard alongside the shed rather
-    # than out on a carreador. A machine standing in the yard is one between
-    # jobs; a machine standing on the road is one that broke down there, and
-    # the yard is where a driver actually leaves both of them. The shed runs
-    # from y = 21 to y = 31, so the pair sits 1.4 m off its south wall, nose
-    # east along the rows, in the levelled clearing and clear of the water tank
-    # at (-36, 18) and of the bins by the gate.
+    # O trator e a carreta, estacionados no pátio ao lado do galpão e não num carreador. Uma
+    # máquina parada no pátio é uma entre serviços; uma máquina parada na estrada é uma que
+    # quebrou ali, e o pátio é onde um motorista de fato deixa as duas. O galpão vai de y = 21 a
+    # y = 31, então o par fica a 1,4 m da parede sul, com o nariz para leste ao longo das
+    # fileiras, na clareira nivelada e longe do tanque de água em (-36, 18) e das caixas junto
+    # ao portão.
     #
-    # The simulated tractor is this same prop -- autonomous_tractor_description
-    # copies its bodywork panel for panel -- so the two are the same machine in
-    # two states: one parked by the shed, one out at the origin with the ROS
-    # graph attached to it. That is a fair thing for a world to show, as long
-    # as the driven one is the one on the carreador.
-    # The yard sits back from the road, and how far back is a rule rather
-    # than a look: 15 m from any centreline, which is the 6 m of bare earth the
-    # carreador wears plus room for a machine to pass a parked one without
-    # leaving the road. check_props below refuses anything closer. The first
-    # cut of this world had the water tank 1 m off the centreline and the field
-    # bins 4.8 m off, which is a tank and two bins standing in the road a
-    # driverless tractor is supposed to have to itself.
+    # O trator simulado é este mesmo adereço -- `autonomous_tractor_description` copia a
+    # carroceria dele painel por painel --, então os dois são a mesma máquina em dois estados:
+    # um estacionado junto ao galpão, outro na origem com o grafo ROS ligado a ele. É uma coisa
+    # justa de um mundo mostrar, desde que o dirigido seja o que está no carreador.
+    # O pátio fica recuado da estrada, e quanto recuado é uma regra e não um visual: 15 m de
+    # qualquer linha central, que são os 6 m de terra nua que o carreador desgasta mais espaço
+    # para uma máquina passar por uma estacionada sem sair da estrada. `check_props` abaixo
+    # recusa qualquer coisa mais perto. A primeira versão deste mundo tinha o tanque de água a
+    # 1 m da linha central e as caixas de campo a 4,8 m, que são um tanque e duas caixas na
+    # estrada que um trator sem motorista deveria ter só para si.
     tractor_x, tractor_y = yard["tractor"]
     trailer_x, trailer_y = yard["trailer"]
     parts.append(standing("model://tractor", "tractor", tractor_x, tractor_y))
@@ -1987,16 +1923,14 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
     standing_props += [("the shed", sx, sy), ("the water tank", tx2, ty2)]
     standing_props += [("a yard bin", *yard[k]) for k in ("bin0", "bin1", "bin2")]
 
-    # Bins waiting at a row end. They used to sit 4.8 m off the centreline,
-    # which is on the bare earth of the carreador: near enough to load from the
-    # road, and squarely in the way of anything driving it. Sixteen metres puts
-    # them in the headland at the end of the rows, which is where a grower
-    # actually leaves a bin he is not filling today.
+    # Caixas esperando na ponta de uma fileira. Elas ficavam a 4,8 m da linha central, que é
+    # terra nua do carreador: perto o bastante para carregar da estrada, e bem no caminho de
+    # quem a percorre. Dezesseis metros as põem na cabeceira, no fim das fileiras, que é onde
+    # um produtor de fato deixa uma caixa que não vai encher hoje.
     for i, dist in enumerate((reach(bound, 180) + 150.0, reach(bound, 180) + 300.0)):
-        # Sixteen metres off the centreline is clear of the road it stands
-        # beside, and nothing says it is clear of the next road along. Walk on
-        # until it is clear of all of them, which on a property this size takes
-        # a few tens of metres at most.
+        # Dezesseis metros da linha central está livre da estrada ao lado da qual ela fica, e
+        # nada diz que está livre da próxima estrada adiante. Segue andando até estar livre de
+        # todas, o que numa propriedade deste tamanho leva no máximo algumas dezenas de metros.
         main_pts = main.points(1.0)
         main_len = sum(math.dist(a, b) for a, b in zip(main_pts, main_pts[1:]))
         bx = by = bh = None
@@ -2016,16 +1950,15 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
 
     check_props(name, network, standing_props)
 
-    # --- what grows in everything that is left ------------------------------
-    # A farm is not planted edge to edge. What is not a talhao, a road or a
-    # patch of mata is pasture, and pasture in this part of the country is
-    # grass with trees standing about in it, singly or in twos, left where they
-    # were when the land was cleared. Filling that ground is not decoration: an
-    # open field with nothing in it is the one place a navigation stack never
-    # has to work, and it is also the least like the photographs.
+    # --- o que cresce em tudo o que sobra ------------------------------------
+    # Uma fazenda não é plantada de ponta a ponta. O que não é talhão, estrada ou mancha de mata
+    # é pasto, e pasto nesta parte do país é capim com árvores em pé no meio, sozinhas ou em
+    # duplas, deixadas onde estavam quando a terra foi desmatada. Preencher esse terreno não é
+    # decoração: um campo aberto sem nada é o único lugar onde uma pilha de navegação nunca
+    # precisa funcionar, e também o que menos se parece com as fotografias.
     #
-    # Scattered from a fixed seed and rejected against everything already
-    # placed, so the arrangement is irregular but the same on every run.
+    # Espalhado a partir de uma semente fixa e rejeitado contra tudo o que já foi posto, então o
+    # arranjo é irregular mas igual em toda execução.
     open_rng = random.Random(90210)
     taken = NearGrid([(sx, sy) for sx, sy, ex, ey, _ in row_segments] +
                      [(ex, ey) for sx, sy, ex, ey, _ in row_segments] +
@@ -2042,11 +1975,10 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
     def open_ground(x, y, spacing, spread):
         if hedge_grid.within(x, y, 6.0) or taken.within(x, y, 10.0):
             return False
-        # `spread` is how far the thing itself has to be held off a road
-        # beyond the 1.5 m of margin a point object needs. Nothing wants more
-        # than that today; the parameter is here because the first attempt at
-        # standing timber out here did, and finding out why is the comment
-        # below the loop.
+        # `spread` é quanto a própria coisa tem de ficar afastada de uma estrada além dos 1,5 m
+        # de margem que um objeto pontual precisa. Nada quer mais que isso hoje; o parâmetro
+        # está aqui porque a primeira tentativa de pôr madeira em pé aqui quis, e descobrir
+        # por quê é o comentário abaixo do laço.
         if any(g.within(x, y, cl - CANOPY_W / 2 + 1.5 + spread)
                for g, cl in road_grids):
             return False
@@ -2058,24 +1990,21 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
             return False
         return not any(math.hypot(x - a, y - b) < spacing for a, b in scattered)
 
-    # What is loose in the headland: standing timber the farm never cleared,
-    # and the odd rock. There were cupinzeiros here, forty of them, and they
-    # came out -- a 1 m mound of brown ellipsoids beside a carreador reads as
-    # something dropped rather than something grown, and at this size nobody
-    # looking at the world could tell what it was meant to be.
-    # A tree stands where a mound stood: 7.5 m from the carreador's centreline,
-    # which puts the trunk 1.5 m outside the bare earth and leaves the canopy
-    # leaning a metre over the shoulder, the way a tree beside a farm road
-    # does. What it must not lean over is the 7 m of running surface, and at
-    # 2.6 m of canopy from 7.5 m out it clears that by 1.4 m.
-    # The two are placed alternately rather than one kind and then the other,
-    # and in citrus_farm that matters. They compete for the same headland, and
-    # that headland is small: citrus_farm, planted right up to its
-    # carreadores, has room for twenty-two loose things where the worlds whose
-    # blocks leave slack take all fifty-eight. Whichever kind ran first took
-    # the lot -- rocks first left three trees, trees first left one rock -- so
-    # they take turns, and each ends up with its share of what there is: 14
-    # trees and 8 rocks here, the full 40 and 18 in the other three.
+    # O que está solto na cabeceira: madeira em pé que a fazenda nunca limpou, e uma pedra de vez
+    # em quando. Havia cupinzeiros aqui, quarenta deles, e saíram -- um monte de 1 m de elipsoides
+    # marrons junto a um carreador parece algo largado e não algo crescido, e neste tamanho
+    # ninguém olhando o mundo saberia dizer o que devia ser.
+    # Uma árvore fica onde ficava um monte: a 7,5 m da linha central do carreador, o que põe o
+    # tronco 1,5 m fora da terra nua e deixa a copa inclinada um metro sobre o acostamento, do
+    # jeito que uma árvore à beira de uma estrada de fazenda faz. O que ela não pode é pender
+    # sobre os 7 m de superfície de rolagem, e com 2,6 m de copa a 7,5 m ela passa 1,4 m longe.
+    # Os dois são postos alternadamente e não um tipo e depois o outro, e em citrus_farm isso
+    # importa. Eles disputam a mesma cabeceira, e ela é pequena: citrus_farm, plantada rente aos
+    # carreadores, tem lugar para vinte e duas coisas soltas, onde os mundos cujos blocos deixam
+    # folga levam todas as cinquenta e oito. Quem rodasse primeiro levava tudo -- pedras
+    # primeiro deixavam três árvores, árvores primeiro deixavam uma pedra --, então eles se
+    # revezam, e cada um fica com a sua parte do que há: 14 árvores e 8 pedras aqui, as 40 e 18
+    # completas nos outros três.
     scatter = (("forest_tree", 40, 12.0, 0.0), ("boulder", 18, 14.0, 0.0))
     placed = {uri: 0 for uri, _, _, _ in scatter}
     for n in range(18000):
@@ -2113,13 +2042,12 @@ def _build_farm(name, network, blocks, opening, loops_note, step=0.002,
 
 
 def dogleg(corners, radius):
-    """A road through a list of corners, with an arc of one radius at each.
+    """Uma estrada por uma lista de cantos, com um arco de um raio em cada.
 
-    Declarative where block_loop was procedural: say where the road turns and
-    the straights between the arcs are worked out so that each arc is tangent
-    to both. A corner eats radius * tan(half the turn) off the straight on
-    either side of it, which is the whole of the arithmetic and exactly the
-    part that is tedious to keep right by hand when a corner moves.
+    Declarativo onde `block_loop` era procedural: diga onde a estrada vira e as retas entre os
+    arcos são calculadas para cada arco ser tangente às duas. Um canto come raio * tan(metade da
+    curva) da reta de cada lado, que é toda a aritmética e exatamente a parte tediosa de manter
+    certa à mão quando um canto se move.
     """
     def bearing(a, b):
         return math.atan2(b[1] - a[1], b[0] - a[0])
@@ -2146,47 +2074,43 @@ def dogleg(corners, radius):
 
 
 def polygon_perimeter(angle, radius, inradius):
-    """A property boundary that turns one angle and closes on itself.
+    """Um limite de propriedade que vira um ângulo e se fecha sobre si mesmo.
 
-    360 degrees of turning divided by the angle gives the number of sides: four
-    at 90, six at 60, twelve at 30. Sized by the inradius, which is the useful
-    number here because it is the distance from the crossroads to the nearest
-    stretch of boundary, and therefore how much room the talhoes have.
+    360 graus de giro divididos pelo ângulo dão o número de lados: quatro com 90, seis com 60,
+    doze com 30. Dimensionado pelo raio inscrito, que é o número útil aqui porque é a distância
+    do cruzamento ao trecho de limite mais próximo, e portanto quanto espaço os talhões têm.
     """
     n = round(360 / angle)
     side = 2 * inradius * math.tan(math.pi / n)
     leg = side - 2 * radius * math.tan(math.radians(angle) / 2)
     p = Path(-inradius, 0.0, 90).straight(leg / 2)
     for i in range(n):
-        # the last leg runs two metres past the start, so the loop visibly
-        # shuts and the final corner is bounded by a straight like the others
+        # a última perna corre dois metros além do início, então o laço visivelmente fecha e a
+        # última curva é limitada por uma reta como as outras
         p.turn(-angle, radius).straight(leg if i < n - 1 else leg / 2 + 2)
     return p
 
 
 def mixed_perimeter(turns, free, radius, h0=90.0, radii=None):
-    """A boundary that turns a different angle at each corner and still closes.
+    """Um limite que vira um ângulo diferente em cada canto e ainda se fecha.
 
-    polygon_perimeter draws a regular polygon: every corner turns the same
-    angle, so every corner paints the same number, and a property with four
-    right angles meets every road that crosses it at a right angle too. Both
-    of those read wrong on the mixed world, where a painted 90 is supposed to
-    mean something: if the four corners all say 90 and every carreador joins
-    the boundary in an unlabelled right angle, the numbers stop being
-    information.
+    `polygon_perimeter` desenha um polígono regular: todo canto vira o mesmo ângulo, então todo
+    canto pinta o mesmo número, e uma propriedade com quatro ângulos retos também encontra toda
+    estrada que a cruza num ângulo reto. As duas coisas parecem erradas no mundo misto, onde um
+    90 pintado deve significar algo: se os quatro cantos dizem 90 e todo carreador encontra o
+    limite num ângulo reto sem rótulo, os números deixam de ser informação.
 
-    So this one takes the turns it should make -- two 90s, two 60s and two 30s
-    here -- and the first n-2 side lengths, and solves the last two so that the
-    ring closes. Turning 360 degrees in total is the only thing not free: the
-    closure is two equations, sum of L*cos(heading) and sum of L*sin(heading)
-    both zero, which is exactly enough to pin two lengths.
+    Então este toma as curvas que deve fazer -- dois 90, dois 60 e dois 30 aqui -- e os
+    primeiros n-2 comprimentos de lado, e resolve os dois últimos para o anel se fechar. Girar
+    360 graus no total é a única coisa que não é livre: o fechamento são duas equações, a soma
+    de L*cos(rumo) e a soma de L*sin(rumo) ambas zero, que é exatamente o bastante para fixar
+    dois comprimentos.
 
-    `radii` gives each corner its own radius, and 0 there is a corner with no
-    arc at all. A field boundary is squared off far more often than it is
-    bladed round -- the aerial photographs are all sharp corners -- so the
-    mixed world takes two of each on its four right angles, which is also how
-    it gets a sharp 90 and a rounded one without putting either inside the
-    property.
+    `radii` dá a cada canto o seu raio, e 0 ali é um canto sem arco nenhum. Um limite de campo é
+    cortado em esquadro muito mais vezes que abaulado -- as fotografias aéreas são todas de
+    cantos vivos --, então o mundo misto toma dois de cada nos seus quatro ângulos retos, que é
+    também como ele ganha um 90 vivo e um arredondado sem pôr nenhum dos dois dentro da
+    propriedade.
     """
     n = len(turns)
     h, heads = math.radians(h0), []
@@ -2204,8 +2128,8 @@ def mixed_perimeter(turns, free, radius, h0=90.0, radii=None):
     if min(sides) < 60.0:
         raise ValueError(f"a side came out at {min(sides):.0f} m")
 
-    # Corners, then the centroid, so the property sits around the origin
-    # rather than wherever the first side happened to start.
+    # Os cantos, depois o centroide, para a propriedade ficar em torno da origem e não onde o
+    # primeiro lado por acaso começou.
     pts, x, y = [(0.0, 0.0)], 0.0, 0.0
     for leg, hh in zip(sides, heads):
         x += leg * math.cos(hh)
@@ -2221,13 +2145,13 @@ def mixed_perimeter(turns, free, radius, h0=90.0, radii=None):
     p.straight(sides[0] / 2 - back[0]).turn(turns[0], rr[0])
     for i in range(1, n):
         p.straight(sides[i] - back[i - 1] - back[i]).turn(turns[i], rr[i])
-    # two metres past the start, so the loop visibly shuts
+    # dois metros além do início, então o laço visivelmente fecha
     p.straight(sides[0] / 2 - back[-1] + 2)
     return p
 
 
 def reach(points, heading, start=60.0, stop=520.0):
-    """How far a road can run from the origin before it meets the boundary."""
+    """Até onde uma estrada pode correr a partir da origem antes de encontrar o limite."""
     c, s = math.cos(math.radians(heading)), math.sin(math.radians(heading))
     grid = NearGrid(points)
     d = start
@@ -2258,18 +2182,17 @@ THROUGH_BLOCKS = [
 ]
 
 
-# The talhoes of the crossroads world, and they are not a list of rectangles
-# somebody chose: they are the four cells the roads leave. A block of citrus is
-# bounded by carreadores on every side, because that is how a grower gets a
-# machine to it and how he gets the fruit out, and a group of trees with no
-# road down one side of it is a group nobody can pick. So the blocks here are
-# the quadrants, and the boundary road and the two crossing carreadores are
-# their four sides.
+# Os talhões do mundo do cruzamento, que não são uma lista de retângulos que alguém escolheu:
+# são as quatro células que as estradas deixam. Um bloco de citros é delimitado por carreadores
+# em todos os lados, porque é assim que um produtor leva uma máquina até ele e tira a fruta, e
+# um grupo de árvores sem estrada num dos lados é um grupo que ninguém colhe. Então os blocos
+# aqui são os quadrantes, e a estrada do limite e os dois carreadores que se cruzam são os
+# quatro lados deles.
 #
-# Rows run east-west in two of them and north-south in the other two. Adjacent
-# blocks at different row directions is what the aerial photographs show, and
-# it is also the only thing that makes a block boundary visible from the air
-# once the canopies have closed.
+# As fileiras correm de leste a oeste em dois deles e de norte a sul nos outros dois. Blocos
+# adjacentes com direções de fileira diferentes é o que as fotografias aéreas mostram, e é
+# também a única coisa que torna visível do ar o limite de um bloco depois que as copas se
+# fecham.
 CROSS_BLOCKS = [
     ("ne", 141.0, 141.0, 133.0, 133.0, math.radians(0)),
     ("nw", -141.0, 141.0, 133.0, 133.0, math.radians(90)),
@@ -2279,12 +2202,11 @@ CROSS_BLOCKS = [
 
 
 def through_network(angle, radius, inradius, spec):
-    """Roads that cross a property, each turning one angle and nothing else.
+    """Estradas que cruzam uma propriedade, cada uma virando um ângulo e nada mais.
 
-    spec is (tag, bearing, heading, moves): where on the boundary the
-    road starts, which way it sets off, and then the moves as (straight, turn
-    sign) pairs. The closing straight is computed, so a road always finishes on
-    the boundary rather than in the middle of a field.
+    `spec` é (tag, rumo de origem, direção, movimentos): onde no limite a estrada começa, para
+    que lado parte, e depois os movimentos como pares (reta, sinal da curva). A reta final é
+    calculada, então uma estrada sempre termina no limite e não no meio de um campo.
     """
     per = polygon_perimeter(angle, radius, inradius)
     bound = per.points(2.0)
@@ -2302,18 +2224,16 @@ def through_network(angle, radius, inradius, spec):
 
 
 def mixed_network(radius, per, spec):
-    """The same as through_network, with the turn angles written out.
+    """O mesmo que `through_network`, com os ângulos de curva escritos por extenso.
 
-    For the farm whose bends are deliberately of different sizes: each move is
-    a straight and then a signed turn in degrees, or zero for no turn. Its
-    siblings take one angle and imply it on every bend; this one is handed
-    each angle because that mixture is the whole point of the world. It is
-    handed its boundary too, because that boundary is not a regular polygon.
+    Para a fazenda cujas curvas são deliberadamente de tamanhos diferentes: cada movimento é uma
+    reta e depois uma curva com sinal em graus, ou zero para nenhuma curva. As irmãs dela tomam
+    um ângulo e o impõem em toda curva; esta recebe cada ângulo porque essa mistura é o ponto do
+    mundo. Recebe também o limite, porque esse limite não é um polígono regular.
 
-    A sixth item in a road's tuple is a y value to finish on instead of the
-    boundary: that road ends in a T against whichever carreador runs along
-    that line, which is how a road inside one block joins the property's
-    network without running out to the fence.
+    Um sexto item na tupla de uma estrada é um valor de y em que terminar em vez do limite: essa
+    estrada termina num T contra o carreador que correr ao longo dessa linha, que é como uma
+    estrada dentro de um bloco se junta à rede da propriedade sem correr até a cerca.
     """
     bound = per.points(2.0)
     net = [("perimeter", per)]
@@ -2323,8 +2243,8 @@ def mixed_network(radius, per, spec):
         d = reach(bound, bearing)
         p = Path(d * math.cos(math.radians(bearing)),
                  d * math.sin(math.radians(bearing)), heading)
-        # (straight, turn) rounds the bend at the world's radius; a third
-        # number overrides it, and 0 there is a sharp corner.
+        # (reta, curva) abaula a curva no raio do mundo; um terceiro número o sobrescreve, e 0
+        # ali é uma esquina viva.
         for move in moves:
             run, turn = move[0], move[1]
             r = move[2] if len(move) > 2 else radius
@@ -2353,20 +2273,19 @@ def _through_farm(angle, radius, spec, opening_note, loops_note, step=0.003):
 
 
 def build_citrus_farm_60() -> tuple[str, str, dict[str, str]]:
-    """The 60: three carreadores, one turn out and one back on each.
+    """O 60: três carreadores, uma curva de ida e uma de volta em cada.
 
-    A boundary that closes on itself has turned 360 degrees, so at 60 it is a
-    hexagon, and that is the one thing about this world that is not a choice.
+    Um limite que se fecha sobre si mesmo girou 360 graus, então com 60 é um hexágono, e essa é
+    a única coisa neste mundo que não é uma escolha.
     """
     return _through_farm(
         60, 26,
         [("main", 180, 0, [(250, -1), (80, 1)]),
          ("cross", 95, -90, [(110, 1), (60, -1)]),
-         # From the south east edge to the north west one, across everything.
-         # It used to start at the bottom point of the hexagon and set off due
-         # east, where the property is 35 m wide: 180 of its 270 m ran outside
-         # the boundary, and a road crossing its own boundary twice draws a
-         # figure of eight on the plan. check_network refuses that now.
+         # Da borda sudeste à noroeste, atravessando tudo. Ela começava no ponto de baixo do
+         # hexágono e partia para leste, onde a propriedade tem 35 m de largura: 180 dos seus
+         # 270 m corriam fora do limite, e uma estrada que cruza o próprio limite duas vezes
+         # desenha um oito na planta. `check_network` recusa isso agora.
          ("south", 300, 120, [(120, 1), (60, -1)])],
         "A 60 is enough of a turn to send a road somewhere else, so each of "
         "these takes one out and one back, and three of them divide the "
@@ -2390,20 +2309,17 @@ def build_citrus_farm_30() -> tuple[str, str, dict[str, str]]:
         "and twelve around the boundary.")
 
 
-SQUARE = 560.0                  # the property, side to side
+SQUARE = 560.0                  # a propriedade, de lado a lado
 
-# The belt of woods, right round the outside of the square. The wood keeps the
-# outside of the world where it has always been -- nothing here reaches past
-# 332 m from the origin, which is where the belt reached when the property was
-# a 400 m square -- and everything it gives up on the inside goes to the
-# talhoes. The strip is 18 m across now where it started at 40, 24 000 m2 of
-# canopy against the first cut's 122 000, and the fence has moved out from
-# 200 m to 280 in the same ground.
+# O cinturão de mata, em volta de todo o lado de fora do quadrado. A mata mantém o lado de fora
+# do mundo onde sempre esteve -- nada aqui passa de 332 m da origem, que é aonde o cinturão
+# chegava quando a propriedade era um quadrado de 400 m -- e tudo o que ela cede por dentro vai
+# para os talhões. A faixa tem 18 m de largura agora onde começou com 40, 24 000 m2 de copa
+# contra os 122 000 da primeira versão, e a cerca foi de 200 m para 280 no mesmo terreno.
 #
-# A belt is scenery nobody drives through, a talhao is what the machine is
-# there for, and when the two want the same metres the talhao takes them. Long
-# along the side and narrow through it, so the wood still closes the horizon
-# without eating the field.
+# Um cinturão é cenário por onde ninguém passa, um talhão é para o que a máquina está ali, e
+# quando os dois querem os mesmos metros o talhão leva. Comprido ao longo do lado e estreito
+# através dele, para a mata ainda fechar o horizonte sem comer o campo.
 CROSS_WOODS = [
     *[blob(x, side * 306, 40, 18, seed=11 + i)
       for i, (x, side) in enumerate(
@@ -2417,52 +2333,44 @@ CROSS_WOODS = [
 
 
 def build_citrus_farm() -> tuple[str, str, dict[str, str]]:
-    """The property this workspace is really about.
+    """A propriedade de que este workspace realmente trata.
 
-    A 560 m square, two carreadores crossing square at the origin, four
-    talhoes one crown apiece, a belt of woods outside the fence, and four
-    oblique roads cut through the blocks: a 60 degree bend in each upper
-    talhao and a 30 degree one in each lower.
+    Um quadrado de 560 m, dois carreadores que se cruzam em esquadro na origem, quatro talhões
+    com uma copa cada, um cinturão de mata fora da cerca e quatro estradas oblíquas cortadas
+    pelos blocos: uma curva de 60 graus em cada talhão de cima e uma de 30 em cada de baixo.
 
-    Sixty degrees at all three points of each road in the upper half, and
-    thirty at all three of each road in the lower half, which is what the
-    shapes are for. It leaves the boundary road at the top of its block at 60, not
-    square to it; it turns 60 in the middle of the block; and it meets the
-    main carreador at the bottom at 60. A shallow V, down one way and down the
-    other, and a machine driving it takes the same angle three times on three
-    different kinds of junction: a T off the boundary, a bend in open ground,
-    a T onto the main.
+    Sessenta graus nos três pontos de cada estrada da metade de cima, e trinta nos três de cada
+    estrada da metade de baixo, que é para o que servem os formatos. Ela sai da estrada do
+    limite no alto do seu bloco a 60, não em esquadro com ela; vira 60 no meio do bloco; e
+    encontra o carreador principal embaixo a 60. Um V raso, descendo para um lado e para o
+    outro, e uma máquina que o percorre toma o mesmo ângulo três vezes em três tipos de junção:
+    um T saindo do limite, uma curva em campo aberto, um T sobre o principal.
 
-    Coming off the north boundary square, which is where this started, made
-    the first of those three a right angle on a road whose whole subject is
-    60 degrees. Entering at 60 fixes it, and the arithmetic then fixes
-    everything else: 60 off a horizontal road, turn 60, and the road is at
-    -120, which meets the horizontal main at 60 again.
+    Sair do limite norte em esquadro, que é onde isto começou, fazia a primeira das três um
+    ângulo reto numa estrada cujo assunto inteiro é 60 graus. Entrar a 60 corrige isso, e a
+    aritmética então corrige todo o resto: 60 a partir de uma estrada horizontal, vira 60, e a
+    estrada está a -120, que encontra o principal horizontal a 60 de novo.
 
-    The bend starts in the most central part of the talhao, which is the other
-    half of the point: a machine that enters the block from the north meets
-    the curve with the whole block around it, not against a fence, and the
-    rows on both sides are cut to it.
+    A curva começa na parte mais central do talhão, que é a outra metade do ponto: uma máquina
+    que entra no bloco pelo norte encontra a curva com o bloco todo em volta, e não contra uma
+    cerca, e as fileiras dos dois lados são cortadas por ela.
 
-    They mirror each other, so the world holds the same bend twice in opposite
-    hands on ground of the same slope. All four are bladed round at the world's
-    24 m; any of them becomes a sharp corner by putting a 0 in as the third
-    number of its move.
+    Elas são espelhadas, então o mundo tem a mesma curva duas vezes em lados opostos, em terreno
+    da mesma inclinação. As quatro são abauladas no raio de 24 m do mundo; qualquer uma vira
+    esquina viva pondo um 0 como terceiro número do seu movimento.
 
-    The two lower roads do the same job at 30 degrees and cannot do it in the
-    same shape, and the arithmetic says why. A leg at 30 degrees to the
-    horizontal meets a vertical road at 60; a leg at 60 meets a horizontal
-    road at 60. With one bend of 30 the two legs are -30 and -60: the first
-    has to finish on a horizontal carreador, which wants a tall block, and the
-    second on a vertical one, which wants a wide block. No rectangle is both.
-    Sixty degrees escapes this because its two legs, -60 and -120, are both at
-    60 to the horizontal, so both can finish on the main and the boundary.
+    As duas estradas de baixo fazem o mesmo serviço a 30 graus e não conseguem fazê-lo na mesma
+    forma, e a aritmética diz por quê. Uma perna a 30 graus da horizontal encontra uma estrada
+    vertical a 60; uma perna a 60 encontra uma estrada horizontal a 60. Com uma curva de 30 as
+    duas pernas ficam em -30 e -60: a primeira tem de terminar num carreador horizontal, o que
+    pede um bloco alto, e a segunda num vertical, o que pede um bloco largo. Nenhum retângulo é
+    os dois. Sessenta graus escapa disso porque as duas pernas, -60 e -120, estão ambas a 60 da
+    horizontal, então as duas podem terminar no principal e no limite.
 
-    So the lower roads take their 30 degrees at both junctions -- off the main
-    at 30, onto the side boundary at 30 -- and give up the exact centre: the
-    bend lands 72 m from the middle of a 266 m block, in its central third.
-    The alternative, a bend dead centre with one junction at 60, trades the
-    angle this world is about for a position.
+    Então as estradas de baixo tomam os 30 graus nas duas junções -- saindo do principal a 30,
+    chegando ao limite lateral a 30 -- e abrem mão do centro exato: a curva cai a 72 m do meio
+    de um bloco de 266 m, no terço central. A alternativa, uma curva no centro exato com uma
+    junção a 60, troca o ângulo de que este mundo trata por uma posição.
     """
     return _build_farm(
         "citrus_farm",
@@ -2511,28 +2419,27 @@ def build_citrus_farm() -> tuple[str, str, dict[str, str]]:
 
 
 def build_citrus_farm_90() -> tuple[str, str, dict[str, str]]:
-    """The 90 degree world, laid out as roads that cross the property.
+    """O mundo de 90 graus, disposto como estradas que cruzam a propriedade.
 
-    The first version of this ringed each quarter of the farm with a loop, and
-    the result was a rectangle inside a rectangle inside a rectangle: every
-    route went round something, and none of them went anywhere. A farm road
-    network is not made of rings. It is made of roads that run from one edge of
-    the property to another and cross each other on the way, and the talhoes
-    are whatever the crossings leave over, which is what the aerial
-    photographs show and what this now does.
+    A primeira versão cercava cada quarto da fazenda com um laço, e o resultado era um
+    retângulo dentro de um retângulo dentro de um retângulo: toda rota dava a volta em alguma
+    coisa, e nenhuma ia a lugar nenhum. Uma rede de estradas de fazenda não é feita de anéis. É
+    feita de estradas que correm de uma borda da propriedade a outra e se cruzam no caminho, e
+    os talhões são o que os cruzamentos deixam, que é o que as fotografias aéreas mostram e o
+    que isto agora faz.
 
-    Four through routes and a boundary, ten bends, all of them 90 degrees.
+    Quatro rotas passantes e um limite, dez curvas, todas de 90 graus.
     """
     R, EDGE = 24, 205
     per = polygon_perimeter(90, R, EDGE)
     network = [
-        # west edge to east edge, through the origin, stepping north on the way
+        # da borda oeste à leste, pela origem, subindo para o norte no caminho
         ("main", dogleg([(-EDGE, 0), (90, 0), (90, 130), (EDGE, 130)], R)),
-        # north edge to south edge, stepping east under the middle of the farm
+        # da borda norte à sul, indo para leste sob o meio da fazenda
         ("cross", dogleg([(-90, EDGE), (-90, -50), (150, -50), (150, -EDGE)], R)),
-        # west edge to the south edge, along the bottom of the property
+        # da borda oeste à borda sul, ao longo da base da propriedade
         ("south", dogleg([(-EDGE, -135), (40, -135), (40, -EDGE)], R)),
-        # north edge to the west edge, over the top
+        # da borda norte à borda oeste, por cima
         ("north", dogleg([(40, EDGE), (40, 90), (-EDGE, 90)], R)),
         ("perimeter", per),
     ]
@@ -2554,40 +2461,36 @@ def build_citrus_farm_90() -> tuple[str, str, dict[str, str]]:
         """,
         "Ten bends, all of them 90 degrees: two on the main carreador, two on "
         "the cross, one on each of the other two, and four around the boundary.",
-        # 3 ms, and the other two farms take the same. Roads that cross a
-        # property leave far more of it plantable than roads that ring parts of
-        # it -- 5421 trees here, the most of the three -- and the step is what
-        # buys that back. Checked rather than assumed, on the robot that has to live
-        # with it: at 3 ms the rover settles dead still at the origin and drives
-        # 8.5 m up the carreador without its yaw or its lateral position moving
-        # off zero.
+        # 3 ms, e as outras duas fazendas tomam o mesmo. Estradas que cruzam uma propriedade
+        # deixam muito mais dela plantável que estradas que cercam partes dela -- 5421 árvores
+        # aqui, a maior contagem das três --, e o passo é o que compensa isso. Conferido e não
+        # presumido, no robô que tem de conviver com ele: a 3 ms o rover se assenta imóvel na
+        # origem e anda 8,5 m pelo carreador sem o yaw ou a posição lateral saírem de zero.
         step=0.003)
 
 
-# -------------------------------------------------------------------- main --
+# ------------------------------------------------------------------ principal --
 
-# ------------------------------------------------------- collisions of plants --
+# ------------------------------------------------------ colisões das plantas --
 
 PLANT_MODELS = re.compile(r'<model name="(?:hedges|scenery)_[^"]*">.*?</model>', re.S)
 COLLISION_BLOCK = re.compile(r"[ \t]*<collision[^>]*>.*?</collision>\n?", re.S)
 
 
 def without_plant_collisions(text: str) -> str:
-    """Strip the collision shapes from every hedgerow and mata model.
+    """Tira as formas de colisão de todo modelo de sebe e de mata.
 
-    A grove simulated for perception does not need the physics engine to know
-    where the trees are: the camera sees them because they are visuals, and the
-    solver was spending its time on 480 trunk cylinders nothing ever touched.
-    Measured in citrus_farm_60 with the tractor spawned, over 20 s of simulated
-    time: 32.8 s of wall clock with them, 29.0 s without.
+    Um pomar simulado para percepção não precisa de o motor de física saber onde as árvores
+    estão: a câmera as vê porque são visuais, e o solver gastava o tempo em 480 cilindros de
+    tronco em que nada nunca tocava. Medido em citrus_farm_60 com o trator criado, em 20 s de
+    tempo simulado: 32,8 s de relógio com elas, 29,0 s sem.
 
-    What is NOT touched, and the distinction is the whole point: the ground
-    (the terrain slabs), the structures that decide where a machine can go
-    (the shed) and the props included from models/ keep every collision they
-    had. Driving through a tree is a deliberate trade; falling through the
-    ground would make all three worlds meaningless.
+    O que NÃO é tocado, e a distinção é o ponto todo: o terreno (as lajes), as estruturas que
+    decidem aonde uma máquina pode ir (o galpão) e os adereços incluídos de models/ mantêm toda
+    colisão que tinham. Atravessar uma árvore é uma troca deliberada; cair pelo chão tornaria
+    os três mundos sem sentido.
 
-    Pass --collisions full to get the strict worlds back.
+    Passe `--collisions full` para ter de volta os mundos estritos.
     """
     return PLANT_MODELS.sub(lambda m: COLLISION_BLOCK.sub("", m.group(0)), text)
 
@@ -2609,9 +2512,9 @@ def main() -> None:
     args = parser.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
-    # The road meshes are written from scratch every run, stale ones included:
-    # this directory holds nothing a human has edited, and a world renamed
-    # would otherwise leave its carreadores behind for good.
+    # As malhas de estrada são escritas do zero a cada execução, inclusive as obsoletas: este
+    # diretório não guarda nada que um humano tenha editado, e um mundo renomeado deixaria os
+    # carreadores dele para trás para sempre.
     meshes = args.models / "carreador" / "meshes"
     meshes.mkdir(parents=True, exist_ok=True)
     for stale in sorted(meshes.iterdir()):

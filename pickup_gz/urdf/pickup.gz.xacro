@@ -1,34 +1,34 @@
 <?xml version="1.0"?>
 <!--
-  The farm pickup, as Gazebo needs to see it.
+  A pickup da fazenda, como o Gazebo precisa vê-la.
 
-  This file includes the pure description and adds everything simulation-only on
-  top: the drivetrain, tyre friction, the sensors' behaviour. Nothing here leaks
-  back into pickup_description, which is what keeps that package usable with
-  rviz alone, MoveIt or a real vehicle.
+  Este arquivo inclui a descrição pura e acrescenta por cima tudo o que é só de
+  simulação: o conjunto de tração, o atrito dos pneus e o comportamento dos
+  sensores. Nada daqui vaza de volta para o pickup_description, o que mantém
+  aquele pacote utilizável só com o `rviz`, o `MoveIt` ou um veículo real.
 
-  Expand it to inspect what actually gets spawned:
+  Expanda-o para inspecionar o que de fato é criado:
     xacro pickup.gz.xacro name:=pickup
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="pickup">
 
-  <!-- The model's name in Gazebo, passed by agri_gz_bringup/launch/sim.launch.py or
-       convoy.launch.py. Sensor topics are built from it so that five machines
-       in one world do not publish over each other. -->
+  <!-- O nome do modelo no Gazebo, passado pelo agri_gz_bringup/launch/sim.launch.py
+       ou pelo convoy.launch.py. Os tópicos dos sensores são montados a partir dele
+       para que cinco máquinas no mesmo mundo não publiquem umas por cima das outras. -->
   <xacro:arg name="name" default="pickup"/>
   <xacro:property name="ns" value="/model/$(arg name)"/>
 
-  <!-- Whether this vehicle carries any sensors at all: IMU, GNSS, camera. -->
+  <!-- Se este veículo leva algum sensor: IMU, GNSS, câmera. -->
   <xacro:arg name="sensors" default="true"/>
 
-  <!-- The camera on its own switch, because it is the one that costs: a
-       convoy's followers carry GNSS and IMU (cheap, and what they localise
-       with) but not a camera. Defaults to whatever sensors:= says. -->
+  <!-- A câmera em chave própria, porque é a que custa: os seguidores de um
+       comboio levam GNSS e IMU (baratos, e com os quais se localizam), mas não
+       câmera. O padrão é o que sensors:= disser. -->
   <xacro:arg name="camera" default="$(arg sensors)"/>
 
-  <!-- Read by agri_gz_bringup/urdf/control.gz.xacro: the vehicle's ROS
-       namespace, and the controllers' parameters (vehicles.py passes a copy
-       narrowed to that namespace). -->
+  <!-- Lidos pelo agri_gz_bringup/urdf/control.gz.xacro: o namespace ROS do
+       veículo e os parâmetros dos controladores (o vehicles.py passa uma cópia
+       restrita a esse namespace). -->
   <xacro:arg name="namespace" default=""/>
   <xacro:arg name="controllers" default="$(find vehicle_control)/config/pickup.yaml"/>
 
@@ -36,36 +36,36 @@
   <xacro:include filename="$(find agri_gz_bringup)/urdf/sensors.gz.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/control.gz.xacro"/>
 
-  <!-- ── Tyres ───────────────────────────────────────────────────────────── -->
+  <!-- ── Pneus ───────────────────────────────────────────────────────────── -->
 
-  <!-- Road tyres on dirt, not agricultural lugs: less grip than the tractor
-       has, which is the honest difference between the two vehicles and the
-       reason the pickup is the one that slides in a headland turn. -->
+  <!-- Pneus de estrada na terra, não garras agrícolas: menos aderência que a do
+       trator, que é a diferença honesta entre os dois veículos e a razão de a
+       pickup ser a que derrapa numa curva de cabeceira. -->
   <xacro:gz_wheel_surface link="left_rear_wheel" mu="1.1" mu2="0.95"/>
   <xacro:gz_wheel_surface link="right_rear_wheel" mu="1.1" mu2="0.95"/>
   <xacro:gz_wheel_surface link="left_front_wheel" mu="1.1" mu2="0.95"/>
   <xacro:gz_wheel_surface link="right_front_wheel" mu="1.1" mu2="0.95"/>
 
-  <!-- ── Drivetrain ──────────────────────────────────────────────────────── -->
+  <!-- ── Tração ──────────────────────────────────────────────────────── -->
 
-  <!-- ros2_control, the same controllers and config as on the mock and the
-       machine (vehicle_control/config/pickup.yaml): Ackermann steering on the
-       front axle, drive on all four wheels, the rear pair from the steering
-       controller and the front pair from front_drive_controller. Only the
-       hardware plugin is Gazebo's; see agri_gz_bringup/urdf/control.gz.xacro.
+  <!-- `ros2_control`, os mesmos controladores e a mesma configuração do `mock` e
+       da máquina (vehicle_control/config/pickup.yaml): direção Ackermann no
+       eixo dianteiro, tração nas quatro rodas, o par traseiro vindo do
+       controlador de direção e o par dianteiro do `front_drive_controller`.
+       Só o plugin de hardware é do Gazebo; ver agri_gz_bringup/urdf/control.gz.xacro.
        -->
   <xacro:gz_ros2_control name="pickup"/>
 
-  <!-- ── Sensors ─────────────────────────────────────────────────────────── -->
+  <!-- ── Sensores ─────────────────────────────────────────────────────────── -->
 
-  <!-- The same three as the tractor, in the same places and for the same
-       reasons: IMU on base_link, GNSS over the centre of the machine, camera
-       on its front face. Left out entirely when sensors:=false. -->
+  <!-- Os mesmos três do trator, nos mesmos lugares e pelas mesmas razões: IMU no
+       `base_link`, GNSS sobre o centro da máquina, câmera na face dianteira.
+       Omitidos por completo quando sensors:=false. -->
   <xacro:if value="$(arg sensors)">
     <xacro:gz_imu link="imu_link" topic="${ns}/imu"/>
     <xacro:gz_navsat link="gnss_link" topic="${ns}/navsat"/>
-    <!-- .../camera_front/image, not .../camera_front: Gazebo derives the
-         camera info topic from the image topic's PARENT. -->
+    <!-- .../camera_front/image, e não .../camera_front: o Gazebo deriva o tópico
+         de `camera info` do PAI do tópico da imagem. -->
     <xacro:if value="$(arg camera)">
       <xacro:gz_camera link="camera_front_link" optical_frame="camera_front_optical_frame"
                        topic="${ns}/camera_front/image"/>

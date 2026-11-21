@@ -1,21 +1,21 @@
-"""Bring up the farm pickup in Gazebo Harmonic.
+"""Sobe a pickup da fazenda no Gazebo Harmonic.
 
     ros2 launch pickup_gz sim.launch.py
     ros2 launch pickup_gz sim.launch.py gui:=false
     ros2 launch pickup_gz sim.launch.py world:=citrus_farm_60.sdf
 
-A wrapper, on purpose. All of the work is in agri_gz_bringup, which is shared by
-every vehicle; this file exists so the pickup can be launched by its own
-package name. Its spawn height is not here but in config/spawn.yaml, where
-every launch that spawns it (convoy included) reads it.
+Um invólucro, de propósito. Todo o trabalho está no agri_gz_bringup, que é
+compartilhado por todos os veículos; este arquivo existe para que a pickup possa
+ser lançada pelo nome do próprio pacote. A altura de criação dela não está aqui,
+mas em config/spawn.yaml, de onde todo `launch` que a cria (comboio incluído) a lê.
 
-To put the pickup at the head of a line of tractors instead of running it on
-its own, see agri_gz_bringup/launch/convoy.launch.py.
+Para pôr a pickup à frente de uma fila de tratores em vez de executá-la
+sozinha, veja agri_gz_bringup/launch/convoy.launch.py.
 
-An included launch does not inherit the command line, so each argument is
-declared here and forwarded explicitly. The list is short and it is the price
-of `ros2 launch pickup_gz sim.launch.py world:=...` working the way
-anyone would expect it to.
+Um `launch` incluído não herda a linha de comando, então cada argumento é
+declarado aqui e repassado explicitamente. A lista é curta e é o preço de
+`ros2 launch pickup_gz sim.launch.py world:=...` funcionar como
+qualquer um esperaria.
 """
 
 from launch import LaunchDescription
