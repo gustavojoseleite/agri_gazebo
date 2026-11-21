@@ -19,13 +19,19 @@
   <xacro:arg name="name" default="autonomous_tractor"/>
   <xacro:property name="ns" value="/model/$(arg name)"/>
 
-  <!-- Se este veículo leva algum sensor: IMU, GNSS, câmera. -->
-  <xacro:arg name="sensors" default="true"/>
+  <!-- Argumentos repassados à descrição, que os declara: `camera_mount` (`single` ou
+       `dual`) e `tag_family`, `tag_id` e `tag_size`. Os sensores de navegação
+       seguem o `sensor_profile` (`default`, `nominal` ou `ideal`; ver
+       agri_gz_bringup/urdf/sensors.gz.xacro). `tag_texture` é o PNG da tag, de
+       `agri_gz_bringup.tags.tag_texture`. -->
+  <xacro:arg name="tag_texture" default=""/>
 
-  <!-- A câmera em chave própria, porque é a que custa: os seguidores de um
-       comboio levam GNSS e IMU (baratos, e com os quais se localizam), mas não
-       câmera. O padrão é o que sensors:= disser. -->
-  <xacro:arg name="camera" default="$(arg sensors)"/>
+  <!-- Coeficientes de distorção de Brown da câmera. -->
+  <xacro:arg name="camera_k1" default="-0.10"/>
+  <xacro:arg name="camera_k2" default="0.01"/>
+  <xacro:arg name="camera_k3" default="0"/>
+  <xacro:arg name="camera_p1" default="0"/>
+  <xacro:arg name="camera_p2" default="0"/>
 
   <!-- Lidos pelo agri_gz_bringup/urdf/control.gz.xacro: o namespace ROS do
        veículo e os parâmetros dos controladores (o vehicles.py passa uma cópia
@@ -39,6 +45,12 @@
   <xacro:include filename="$(find autonomous_tractor_description)/urdf/autonomous_tractor.urdf.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/sensors.gz.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/control.gz.xacro"/>
+
+  <!-- ── Textura da tag ──────────────────────────────────────────────────── -->
+
+  <!-- Antes do `ros2_control`: a junta da textura precisa vir antes das juntas desse
+       bloco, que não têm <child>, para quem lê o URDF procurando pelo filho. -->
+  <xacro:gz_tag_texture size="$(arg tag_size)" texture="$(arg tag_texture)"/>
 
   <!-- ── Pneus ───────────────────────────────────────────────────────────── -->
 
@@ -75,17 +87,35 @@
        orçamento para um sensor, porque uma varredura de 360 graus percorre todo
        visual do mundo dez vezes por segundo. O agri_gz_bringup ainda traz a
        macro `gz_lidar_3d`. -->
-  <xacro:if value="$(arg sensors)">
-    <xacro:gz_imu link="imu_link" topic="${ns}/imu"/>
-    <xacro:gz_navsat link="gnss_link" topic="${ns}/navsat"/>
-    <!-- .../camera_front/image, e não .../camera_front: o Gazebo deriva o tópico
-         de `camera info` do PAI do tópico da imagem, então o nome mais curto
-         poria o `info` em /model/<name>/camera_info, onde uma segunda câmera o
-         sobrescreveria. -->
-    <xacro:if value="$(arg camera)">
-      <xacro:gz_camera link="camera_front_link" optical_frame="camera_front_optical_frame"
-                       topic="${ns}/camera_front/image"/>
-    </xacro:if>
+  <xacro:gz_imu link="imu_link" topic="${ns}/imu"/>
+  <xacro:gz_navsat link="gnss_link" topic="${ns}/navsat"/>
+
+  <!-- A câmera é sempre do trator: 120 graus na montagem simples; na dupla, uma de 90
+       graus em cada lado. O tópico termina em /image, e não no nome da câmera: o
+       Gazebo deriva o tópico de `camera info` do PAI do tópico da imagem, então o
+       nome mais curto poria o `info` em /model/<name>/camera_info, onde uma
+       segunda câmera o sobrescreveria. -->
+  <xacro:if value="${'$(arg camera_mount)' == 'single'}">
+    <xacro:gz_camera link="camera_front_link" optical_frame="camera_front_optical_frame"
+                     topic="${ns}/camera_front/image"
+                     k1="$(arg camera_k1)" k2="$(arg camera_k2)" k3="$(arg camera_k3)"
+                     p1="$(arg camera_p1)" p2="$(arg camera_p2)"/>
   </xacro:if>
+  <xacro:if value="${'$(arg camera_mount)' == 'dual'}">
+    <xacro:gz_camera link="camera_front_left_link"
+                     optical_frame="camera_front_left_optical_frame"
+                     topic="${ns}/camera_front_left/image" hfov="${pi / 2}"
+                     k1="$(arg camera_k1)" k2="$(arg camera_k2)" k3="$(arg camera_k3)"
+                     p1="$(arg camera_p1)" p2="$(arg camera_p2)"/>
+    <xacro:gz_camera link="camera_front_right_link"
+                     optical_frame="camera_front_right_optical_frame"
+                     topic="${ns}/camera_front_right/image" hfov="${pi / 2}"
+                     k1="$(arg camera_k1)" k2="$(arg camera_k2)" k3="$(arg camera_k3)"
+                     p1="$(arg camera_p1)" p2="$(arg camera_p2)"/>
+  </xacro:if>
+
+  <!-- ── Pose real ────────────────────────────────────────────────────────── -->
+
+  <xacro:gz_pose_publisher/>
 
 </robot>

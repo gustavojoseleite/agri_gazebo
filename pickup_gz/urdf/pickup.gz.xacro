@@ -18,13 +18,11 @@
   <xacro:arg name="name" default="pickup"/>
   <xacro:property name="ns" value="/model/$(arg name)"/>
 
-  <!-- Se este veículo leva algum sensor: IMU, GNSS, câmera. -->
-  <xacro:arg name="sensors" default="true"/>
-
-  <!-- A câmera em chave própria, porque é a que custa: os seguidores de um
-       comboio levam GNSS e IMU (baratos, e com os quais se localizam), mas não
-       câmera. O padrão é o que sensors:= disser. -->
-  <xacro:arg name="camera" default="$(arg sensors)"/>
+  <!-- `tag_family`, `tag_id` e `tag_size` vão para a descrição, que os declara. Os
+       sensores de navegação seguem o `sensor_profile` (`default`, `nominal` ou
+       `ideal`; ver agri_gz_bringup/urdf/sensors.gz.xacro). `tag_texture` é o PNG da
+       tag, de `agri_gz_bringup.tags.tag_texture`. -->
+  <xacro:arg name="tag_texture" default=""/>
 
   <!-- Lidos pelo agri_gz_bringup/urdf/control.gz.xacro: o namespace ROS do
        veículo e os parâmetros dos controladores (o vehicles.py passa uma cópia
@@ -35,6 +33,12 @@
   <xacro:include filename="$(find pickup_description)/urdf/pickup.urdf.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/sensors.gz.xacro"/>
   <xacro:include filename="$(find agri_gz_bringup)/urdf/control.gz.xacro"/>
+
+  <!-- ── Textura da tag ──────────────────────────────────────────────────── -->
+
+  <!-- Antes do `ros2_control`: a junta da textura precisa vir antes das juntas desse
+       bloco, que não têm <child>, para quem lê o URDF procurando pelo filho. -->
+  <xacro:gz_tag_texture size="$(arg tag_size)" texture="$(arg tag_texture)"/>
 
   <!-- ── Pneus ───────────────────────────────────────────────────────────── -->
 
@@ -58,18 +62,14 @@
 
   <!-- ── Sensores ─────────────────────────────────────────────────────────── -->
 
-  <!-- Os mesmos três do trator, nos mesmos lugares e pelas mesmas razões: IMU no
-       `base_link`, GNSS sobre o centro da máquina, câmera na face dianteira.
-       Omitidos por completo quando sensors:=false. -->
-  <xacro:if value="$(arg sensors)">
-    <xacro:gz_imu link="imu_link" topic="${ns}/imu"/>
-    <xacro:gz_navsat link="gnss_link" topic="${ns}/navsat"/>
-    <!-- .../camera_front/image, e não .../camera_front: o Gazebo deriva o tópico
-         de `camera info` do PAI do tópico da imagem. -->
-    <xacro:if value="$(arg camera)">
-      <xacro:gz_camera link="camera_front_link" optical_frame="camera_front_optical_frame"
-                       topic="${ns}/camera_front/image"/>
-    </xacro:if>
-  </xacro:if>
+  <!-- GNSS e IMU, nos mesmos lugares e pelas mesmas razões do trator: IMU no
+       `base_link` e GNSS sobre o centro da máquina. A pickup não tem câmera: o
+       líder segue a rota predefinida dos carreadores. -->
+  <xacro:gz_imu link="imu_link" topic="${ns}/imu"/>
+  <xacro:gz_navsat link="gnss_link" topic="${ns}/navsat"/>
+
+  <!-- ── Pose real ────────────────────────────────────────────────────────── -->
+
+  <xacro:gz_pose_publisher/>
 
 </robot>

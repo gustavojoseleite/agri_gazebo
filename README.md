@@ -122,12 +122,33 @@ criar um sexto:
   sua **árvore de TF no seu namespace** (`/tractor_3/tf`, `/tractor_3/tf_static`): todo veículo
   usa os mesmos nomes de frame, e num `/tf` global um sobrescreveria o outro. Um nó que lê o TF de
   um veículo remapeia `/tf` e `/tf_static` para os nomes relativos, como o `ftl_bringup` faz.
-- **Só o líder leva câmera.** Uma câmera é a coisa mais cara de qualquer um destes mundos — 16,8
-  dos 62,1 segundos de parede para simular 20 s do `citrus_farm_60`, uma só — então os seguidores
-  são criados com `camera:=false`. Eles mantêm GNSS e IMU, que são baratos e são com o que um
-  seguidor se localiza; a metade câmera da configuração da bridge deles cai junto com a câmera,
-  então nada assina um tópico que nunca vai ter mensagem. `followers_camera:=true` dá câmeras a
-  eles também, pelo preço que se espera; `followers_sensors:=false` os deixa sem sensor nenhum.
+- **Cada veículo leva a própria tag, e só os seguidores levam câmera.** O líder tem a tag 0 e o
+  seguidor `k` tem a tag `k`. Todos têm GNSS, IMU e a pose real; os seguidores têm câmera (a
+  câmera é a coisa mais cara de qualquer um destes mundos: 16,8 dos 62,1 segundos de parede para
+  simular 20 s do `citrus_farm_60`), e a metade câmera da configuração da bridge do líder cai
+  junto com a câmera, então nada assina um tópico que nunca vai ter mensagem.
+
+Argumentos do comboio além dos de posição:
+
+| argumento        | padrão    | o que faz                                                       |
+|------------------|-----------|-----------------------------------------------------------------|
+| `tag_family`     | `36h11`   | família AprilTag de todos os veículos                           |
+| `tag_size`       | `0.5`     | lado do quadrado preto da tag, em metros                        |
+| `camera_mount`   | `single`  | `single` (uma câmera) ou `dual` (duas câmeras de 90 graus)      |
+| `sensor_profile` | `default` | perfil de GNSS e IMU: `default`, `nominal` ou `ideal`           |
+
+Cada câmera sobe com um nó `camera_distortion` no namespace do veículo, que publica
+`<veiculo>/camera_front/image_raw` (ou as das duas câmeras na montagem `dual`).
+
+A **verdade de solo** de cada veículo, líder inclusive, chega em
+`/ground_truth/<nome>/pose` (`geometry_msgs/msg/PoseStamped`), por exemplo
+`/ground_truth/pickup/pose`.
+
+**Sem tela:** com `gui:=false` e sem `DISPLAY`, o `gz sim` recebe `--headless-rendering`. Se
+`/usr/share/glvnd/egl_vendor.d/10_nvidia.json` existir, o launch define
+`__EGL_VENDOR_LIBRARY_FILENAMES` com ele; sem isso o EGL escolhe o Mesa e a câmera não renderiza
+no container. O `sim.launch.py` (um veículo só) usa a mesma regra, com a tag 0 e câmera se o tipo
+de veículo tiver.
 
 O que o bringup de um veículo é mora no módulo Python `agri_gz_bringup.vehicles`
 (`agri_gz_bringup/agri_gz_bringup/vehicles.py`, instalado com `ament_python_install_package`) e é
@@ -138,6 +159,7 @@ duas vezes é ter duas definições que vão discordar:
 ```python
 from agri_gz_bringup.vehicles import vehicle_nodes
 nodes = vehicle_nodes("pickup", "pickup", "/pickup", (0.0, 0.0, None, 0.0))   # z None: spawn.yaml
+# tag_id, tag_family, tag_size, camera, camera_mount e sensor_profile são opcionais
 ```
 
 Cada veículo cai da sua própria altura, declarada em `<veiculo>_gz/config/spawn.yaml` (`z: 0.4`
@@ -778,6 +800,73 @@ python3 agri_gz_worlds/scripts/generate_citrus_meshes.py --out /tmp    # olhar a
 Os dois geradores só precisam de Python 3, e o OBJ leva as cores num `.mtl` ao lado, e não no mundo:
 uma malha tem uma copa verde e um tronco marrom, e um `<material>` do SDF só consegue sobrescrever
 uma malha com uma cor só.
+
+### A textura da tag
+
+`agri_gz_bringup.tags.tag_texture(family, tag_id, folder=None)` grava o PNG do quadrado preto de uma
+tag AprilTag (512 px, com o anel preto de fora e sem a margem branca, que vem da placa do
+veículo) e devolve o caminho. As famílias são `16h5`, `25h9`, `36h10` e `36h11`; família ou ID
+desconhecido dá `ValueError`. O arquivo se chama `tag<família>_<ID>.png` e, sem `folder`, vai para
+`agri_gz_tags` dentro do diretório temporário; se já existe, não é regravado.
+
+### A distorção da câmera
+
+O Gazebo Harmonic publica os coeficientes de Brown no `camera_info`, mas o ogre2 não distorce a
+imagem. O nó `camera_distortion` assina `<câmera>/image_ideal` e `<câmera>/camera_info` e publica
+`<câmera>/image_raw` distorcida, com o mesmo cabeçalho. O nome da câmera é o parâmetro `camera`
+(padrão `camera_front`), relativo ao namespace do nó. Com `D` nulo, a imagem é repassada sem
+alteração.
+
+`agri_gz_bringup.distortion.distortion_maps(K, D, width, height)` calcula os mapas do `cv2.remap`.
+
+### Perfis de sensor, câmera, textura e pose real
+
+O argumento `sensor_profile` do xacro de cada veículo escolhe os sensores de navegação:
+
+| perfil    | GNSS                  | IMU                  |
+|-----------|-----------------------|----------------------|
+| `default` | 5 Hz, 1 m e 2 m       | 100 Hz, com ruído    |
+| `nominal` | 1 Hz, 2 cm e 4 cm     | 20 Hz, sem ruído     |
+| `ideal`   | 1 Hz, sem ruído       | 20 Hz, sem ruído     |
+
+Os dois valores do GNSS são o desvio horizontal e o vertical, em metros.
+
+O trator sempre leva câmera: 120 graus, 1280x720, a 10 Hz, sem `<noise>` e com `<distortion>`
+(`camera_k1`, `camera_k2`, `camera_k3`, `camera_p1` e `camera_p2`; padrão -0,10, 0,01, 0, 0 e 0).
+Com `camera_mount:=dual` são duas câmeras de 90 graus, `camera_front_left` e `camera_front_right`.
+A ponte leva a imagem para `camera_front/image_ideal`, e o nó `camera_distortion` publica
+`camera_front/image_raw`. A pickup não tem câmera.
+
+A textura da tag (o argumento `tag_texture` do xacro, o PNG que a função `tag_texture()` grava) vai
+num link `tag_rear_texture`, filho de `tag_rear` por junta fixa: uma caixa de 1 mm logo à frente do
+quadrado da descrição, e o único visual com `albedo_map`. Os argumentos `tag_family`, `tag_id`
+e `tag_size` vão para a descrição.
+
+A pose real de cada modelo sai do plugin `gz-sim-pose-publisher-system` em `/model/<nome>/pose` e
+a ponte a entrega em `/ground_truth/<nome>/pose` (`geometry_msgs/msg/PoseStamped`).
+
+### Memória compartilhada para as imagens
+
+O quadro da câmera tem 2,7 MB. No padrão do Fast DDS ele não cabe no segmento de memória
+compartilhada e cai para o UDP, que perde fragmentos: a imagem chegava a 5 a 7 Hz em vez de 10 Hz.
+O perfil `agri_gz_bringup/config/fastdds_shm.xml` dá ao segmento 64 MB. O `convoy.launch.py` o
+aplica em `FASTRTPS_DEFAULT_PROFILES_FILE`, salvo se a variável já estiver definida; o teste de
+simulação do `autonomous_tractor_gz` a define pelo CMake. Um nó que assine a imagem fora do launch
+precisa da mesma variável.
+
+### Fator de tempo real
+
+O `measure_rtf.py` sobe o comboio sem GUI com `followers:=4` (1 líder e 4 tratores com câmera) e
+divide o tempo simulado do `/clock` pelo tempo de relógio, contados a partir do primeiro `/clock`:
+
+```bash
+ros2 run agri_gz_bringup measure_rtf.py --seconds 60
+```
+
+Medida em 2026-11-21, no mundo `citrus_farm.sdf`, na GPU NVIDIA GeForce RTX 3060 (driver
+595.99.02), com a renderização sem tela pelo EGL, sem `rectify_node` nem `apriltag_node`:
+
+- fator de tempo real: 0,54 (32,67 s simulados em 60,00 s de relógio)
 
 ## Adicionando um veículo
 

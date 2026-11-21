@@ -19,6 +19,38 @@
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+  <!-- Perfil dos sensores de navegação (`sensor_profile`), lido pelas macros
+       `gz_imu` e `gz_navsat`:
+         default  os valores de sempre: GNSS a 5 Hz com 1 m e 2 m de dispersão;
+                  IMU a 100 Hz com ruído de uma unidade MEMS industrial;
+         nominal  os de projeto: GNSS a 1 Hz com 2 cm e 4 cm; IMU a 20 Hz sem ruído;
+         ideal    as taxas nominais sem ruído nenhum.
+       `imu_noise` multiplica os desvios e as polarizações da IMU, então 0 a
+       deixa sem ruído sem tirar os elementos do SDF. -->
+  <xacro:arg name="sensor_profile" default="default"/>
+  <xacro:property name="profile" value="$(arg sensor_profile)"/>
+  <xacro:if value="${profile == 'default'}">
+    <xacro:property name="gnss_rate" value="5"/>
+    <xacro:property name="gnss_horizontal" value="1.0"/>
+    <xacro:property name="gnss_vertical" value="2.0"/>
+    <xacro:property name="imu_rate" value="100"/>
+    <xacro:property name="imu_noise" value="1.0"/>
+  </xacro:if>
+  <xacro:if value="${profile == 'nominal'}">
+    <xacro:property name="gnss_rate" value="1"/>
+    <xacro:property name="gnss_horizontal" value="0.02"/>
+    <xacro:property name="gnss_vertical" value="0.04"/>
+    <xacro:property name="imu_rate" value="20"/>
+    <xacro:property name="imu_noise" value="0.0"/>
+  </xacro:if>
+  <xacro:if value="${profile == 'ideal'}">
+    <xacro:property name="gnss_rate" value="1"/>
+    <xacro:property name="gnss_horizontal" value="0.0"/>
+    <xacro:property name="gnss_vertical" value="0.0"/>
+    <xacro:property name="imu_rate" value="20"/>
+    <xacro:property name="imu_noise" value="0.0"/>
+  </xacro:if>
+
   <!-- Lidar 3D. Os valores padrão descrevem uma unidade de 16 feixes: a classe de
        sensor que equipa uma máquina agrícola, com abertura vertical suficiente
        para ver o chão à frente e a copa ao lado. -->
@@ -68,7 +100,7 @@
   <!-- `IMU`. Os valores de ruído são os de uma unidade MEMS industrial: bons o
        bastante para fusão, ruins o bastante para que a odometria só com ela
        derive, que é o comportamento que vale reproduzir. -->
-  <xacro:macro name="gz_imu" params="link topic update_rate:=100">
+  <xacro:macro name="gz_imu" params="link topic update_rate:=${imu_rate}">
     <gazebo reference="${link}">
       <sensor name="${link}" type="imu">
         <topic>${topic}</topic>
@@ -77,20 +109,26 @@
         <always_on>true</always_on>
         <imu>
           <angular_velocity>
-            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.0003</stddev>
-               <bias_mean>0.0000075</bias_mean><bias_stddev>0.0000008</bias_stddev></noise></x>
-            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.0003</stddev>
-               <bias_mean>0.0000075</bias_mean><bias_stddev>0.0000008</bias_stddev></noise></y>
-            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.0003</stddev>
-               <bias_mean>0.0000075</bias_mean><bias_stddev>0.0000008</bias_stddev></noise></z>
+            <x><noise type="gaussian"><mean>0.0</mean><stddev>${0.0003 * imu_noise}</stddev>
+               <bias_mean>${0.0000075 * imu_noise}</bias_mean>
+               <bias_stddev>${0.0000008 * imu_noise}</bias_stddev></noise></x>
+            <y><noise type="gaussian"><mean>0.0</mean><stddev>${0.0003 * imu_noise}</stddev>
+               <bias_mean>${0.0000075 * imu_noise}</bias_mean>
+               <bias_stddev>${0.0000008 * imu_noise}</bias_stddev></noise></y>
+            <z><noise type="gaussian"><mean>0.0</mean><stddev>${0.0003 * imu_noise}</stddev>
+               <bias_mean>${0.0000075 * imu_noise}</bias_mean>
+               <bias_stddev>${0.0000008 * imu_noise}</bias_stddev></noise></z>
           </angular_velocity>
           <linear_acceleration>
-            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.017</stddev>
-               <bias_mean>0.1</bias_mean><bias_stddev>0.001</bias_stddev></noise></x>
-            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.017</stddev>
-               <bias_mean>0.1</bias_mean><bias_stddev>0.001</bias_stddev></noise></y>
-            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.017</stddev>
-               <bias_mean>0.1</bias_mean><bias_stddev>0.001</bias_stddev></noise></z>
+            <x><noise type="gaussian"><mean>0.0</mean><stddev>${0.017 * imu_noise}</stddev>
+               <bias_mean>${0.1 * imu_noise}</bias_mean>
+               <bias_stddev>${0.001 * imu_noise}</bias_stddev></noise></x>
+            <y><noise type="gaussian"><mean>0.0</mean><stddev>${0.017 * imu_noise}</stddev>
+               <bias_mean>${0.1 * imu_noise}</bias_mean>
+               <bias_stddev>${0.001 * imu_noise}</bias_stddev></noise></y>
+            <z><noise type="gaussian"><mean>0.0</mean><stddev>${0.017 * imu_noise}</stddev>
+               <bias_mean>${0.1 * imu_noise}</bias_mean>
+               <bias_stddev>${0.001 * imu_noise}</bias_stddev></noise></z>
           </linear_acceleration>
         </imu>
       </sensor>
@@ -116,8 +154,9 @@
        é o que há para dar a ele. -->
   <xacro:property name="metres_per_degree" value="111320.0"/>
 
-  <xacro:macro name="gz_navsat" params="link topic update_rate:=5
-                                        horizontal_stddev:=1.0 vertical_stddev:=2.0">
+  <xacro:macro name="gz_navsat" params="link topic update_rate:=${gnss_rate}
+                                        horizontal_stddev:=${gnss_horizontal}
+                                        vertical_stddev:=${gnss_vertical}">
     <gazebo reference="${link}">
       <sensor name="${link}" type="navsat">
         <topic>${topic}</topic>
@@ -136,7 +175,8 @@
     </gazebo>
   </xacro:macro>
 
-  <!-- Câmera. O `gz_frame_id` é o frame ÓPTICO, não o da montagem: uma imagem
+  <!-- Câmera, a 10 Hz e com 120 graus por padrão.
+       O `gz_frame_id` é o frame ÓPTICO, não o da montagem: uma imagem
        cujo cabeçalho diz `camera_link` fica 90 graus fora do que todo nó de
        visão assume, e o erro é silencioso.
 
@@ -145,9 +185,10 @@
        .../camera_front/image, o par sai como .../camera_front/image e
        .../camera_front/camera_info. Passando .../camera_front, o `info` cai ao
        lado do modelo, onde a próxima câmera o sobrescreve. -->
-  <xacro:macro name="gz_camera" params="link optical_frame topic update_rate:=15
-                                        width:=1280 height:=720 hfov:=1.20
-                                        near:=0.2 far:=200.0">
+  <xacro:macro name="gz_camera" params="link optical_frame topic update_rate:=10
+                                        width:=1280 height:=720 hfov:=2.0944
+                                        near:=0.2 far:=200.0
+                                        k1:=-0.10 k2:=0.01 k3:=0.0 p1:=0.0 p2:=0.0">
     <gazebo reference="${link}">
       <sensor name="${link}" type="camera">
         <topic>${topic}</topic>
@@ -166,13 +207,65 @@
             <far>${far}</far>
           </clip>
           <optical_frame_id>${optical_frame}</optical_frame_id>
-          <noise>
-            <type>gaussian</type>
-            <mean>0.0</mean>
-            <stddev>0.005</stddev>
-          </noise>
+          <!-- Sem <noise>: a imagem sai limpa e só a distorção de Brown a
+               degrada (o nó `camera_distortion` a aplica, pois o ogre2 não a
+               desenha; o Gazebo só a publica no `camera_info`). -->
+          <distortion>
+            <k1>${k1}</k1>
+            <k2>${k2}</k2>
+            <k3>${k3}</k3>
+            <p1>${p1}</p1>
+            <p2>${p2}</p2>
+            <center>0.5 0.5</center>
+          </distortion>
         </camera>
       </sensor>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- Textura da tag. O quadrado preto da descrição (2 mm, em x de -0,002 a 0 no
+       frame da tag) fica como está; este link é uma caixa de 1 mm logo à frente
+       dele, presa por uma junta fixa, e é a única face que recebe o PNG
+       (`albedo_map`). Assim a placa e o quadrado da descrição não mudam, e a
+       textura vale só na simulação. -->
+  <xacro:macro name="gz_tag_texture" params="size texture parent:=tag_rear">
+    <link name="${parent}_texture">
+      <visual>
+        <origin xyz="-0.0025 0 0" rpy="0 0 0"/>
+        <geometry><box size="0.001 ${size} ${size}"/></geometry>
+        <material name="${parent}_texture"><color rgba="1 1 1 1"/></material>
+      </visual>
+    </link>
+    <joint name="${parent}_texture_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${parent}_texture"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+    <gazebo reference="${parent}_texture">
+      <visual>
+        <material>
+          <pbr><metal><albedo_map>${texture}</albedo_map></metal></pbr>
+        </material>
+      </visual>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- Pose real do modelo, publicada pelo Gazebo em /model/<nome>/pose como
+       `gz.msgs.Pose` (e não `Pose_V`, por `use_pose_vector_msg` desligado). É a
+       referência para medir o erro da localização; só a do modelo, sem as dos
+       `links`. -->
+  <xacro:macro name="gz_pose_publisher">
+    <gazebo>
+      <plugin filename="gz-sim-pose-publisher-system"
+              name="gz::sim::systems::PosePublisher">
+        <publish_model_pose>true</publish_model_pose>
+        <publish_link_pose>false</publish_link_pose>
+        <publish_collision_pose>false</publish_collision_pose>
+        <publish_visual_pose>false</publish_visual_pose>
+        <publish_sensor_pose>false</publish_sensor_pose>
+        <publish_nested_model_pose>false</publish_nested_model_pose>
+        <use_pose_vector_msg>false</use_pose_vector_msg>
+      </plugin>
     </gazebo>
   </xacro:macro>
 
