@@ -33,24 +33,35 @@ põem seus tópicos gz sob /model/<name>/, então cinco veículos chegariam todo
 `ros2 run vehicle_control teleop_key --ros-args -r __ns:=/tractor_3`.
 Os seguidores se chamam <follower_prefix>_<n>, tractor_1 em diante por padrão.
 
-**Só o líder leva câmera.** A câmera é a coisa mais cara em qualquer um destes
-mundos (medido: 16,8 dos 62,1 segundos de relógio que levou para simular 20 s
-do citrus_farm_60), então os seguidores são criados com camera:=false. Eles
-mantêm GNSS e IMU, que são baratos e com os quais um seguidor se localiza.
-followers_camera:=true dá câmeras a eles também, pelo preço acima;
-followers_sensors:=false tira também o GNSS e a IMU.
+**Cada veículo leva a própria tag e só os seguidores levam câmera.** O líder tem a tag 0 e o
+seguidor k a tag k, da família `tag_family` e com `tag_size` metros de lado. Todos têm GNSS, IMU
+e a pose real em /ground_truth/<nome>/pose. Os seguidores têm câmera (`camera_mount:=dual` dá
+duas) e o líder não. `sensor_profile` escolhe o perfil de GNSS e IMU.
 """
 
 import math
+import os
 from pathlib import Path
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
+from launch.actions import (DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction,
+                            SetEnvironmentVariable)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
-from agri_gz_bringup.vehicles import vehicle_nodes
+from agri_gz_bringup.vehicles import convoy_line, egl_actions, gz_args, vehicle_nodes
+
+
+def shared_memory_actions():
+    """Põe o perfil do Fast DDS de memória compartilhada, salvo se o usuário já escolheu um.
+
+    Sem ele, o quadro de 2,7 MB da câmera passa pelo UDP e chega com metade da taxa.
+    """
+    if os.environ.get("FASTRTPS_DEFAULT_PROFILES_FILE"):
+        return []
+    profile = Path(get_package_share_directory("agri_gz_bringup")) / "config" / "fastdds_shm.xml"
+    return [SetEnvironmentVariable("FASTRTPS_DEFAULT_PROFILES_FILE", str(profile))]
 
 
 def launch_setup(context, *args, **kwargs):
@@ -60,13 +71,9 @@ def launch_setup(context, *args, **kwargs):
     world = arg("world")
     gui = arg("gui").lower() == "true"
     spacing = float(arg("spacing"))
-    followers = int(arg("followers"))
     x0, y0, yaw = float(arg("x")), float(arg("y")), float(arg("yaw"))
-    follower_sensors = arg("followers_sensors").lower() == "true"
-    follower_camera = arg("followers_camera").lower() == "true"
-    leader, follower = arg("leader"), arg("follower")
-    leader_name = arg("leader_name") or leader
-    prefix = arg("follower_prefix")
+    tag_family, tag_size = arg("tag_family"), float(arg("tag_size"))
+    camera_mount, sensor_profile = arg("camera_mount"), arg("sensor_profile")
 
     world_path = Path(get_package_share_directory("agri_gz_worlds")) / "worlds" / world
     if not world_path.exists():
@@ -77,7 +84,7 @@ def launch_setup(context, *args, **kwargs):
             Path(get_package_share_directory("ros_gz_sim")) / "launch" / "gz_sim.launch.py"
         )),
         launch_arguments={
-            "gz_args": f"{world_path} -r -v 3" + ("" if gui else " -s"),
+            "gz_args": gz_args(world_path, gui),
         }.items(),
     )
 
@@ -87,16 +94,17 @@ def launch_setup(context, *args, **kwargs):
 
     # Sem altura de criação aqui: cada veículo traz a sua (`spawn.yaml` no seu
     # pacote <robot>_gz), o que permite a qualquer tipo assumir qualquer papel.
-    line = [(leader, leader_name)]
-    line += [(follower, f"{prefix}_{n + 1}") for n in range(followers)]
+    line = convoy_line(arg("leader"), arg("follower"), int(arg("followers")),
+                       arg("follower_prefix"), arg("leader_name"))
 
-    nodes = [gz_sim]
-    for n, (robot, name) in enumerate(line):
+    nodes = [*egl_actions(gui), *shared_memory_actions(), gz_sim]
+    for n, vehicle in enumerate(line):
         nodes += vehicle_nodes(
-            robot, name, f"/{name}",
+            vehicle["robot"], vehicle["name"], f"/{vehicle['name']}",
             (x0 + back_x * spacing * n, y0 + back_y * spacing * n, None, yaw),
-            sensors=(n == 0 or follower_sensors),
-            camera=(n == 0 or follower_camera),
+            tag_id=vehicle["tag_id"], tag_family=tag_family, tag_size=tag_size,
+            camera=vehicle["camera"], camera_mount=camera_mount,
+            sensor_profile=sensor_profile,
         )
     return nodes
 
@@ -136,13 +144,20 @@ def generate_launch_description():
             description="Metres between one machine's base_link and the next.",
         ),
         DeclareLaunchArgument(
-            "followers_sensors", default_value="true",
-            description="false spawns the followers with no GNSS, IMU or camera at all.",
+            "tag_family", default_value="36h11",
+            description="AprilTag family of every vehicle: 16h5, 25h9, 36h10 or 36h11.",
         ),
         DeclareLaunchArgument(
-            "followers_camera", default_value="false",
-            description=("true gives every follower a camera as well. "
-                         "Costly: a camera is the most expensive thing in these worlds."),
+            "tag_size", default_value="0.5",
+            description="Side of the tag's black square, metres.",
+        ),
+        DeclareLaunchArgument(
+            "camera_mount", default_value="single",
+            description="single: one 120 degree camera; dual: two 90 degree cameras.",
+        ),
+        DeclareLaunchArgument(
+            "sensor_profile", default_value="default",
+            description="GNSS and IMU profile: default, nominal or ideal.",
         ),
         DeclareLaunchArgument("x", default_value="0.0",
                               description="Where the leader stands. 0 is the world centre."),

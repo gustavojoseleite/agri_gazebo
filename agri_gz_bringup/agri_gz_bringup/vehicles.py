@@ -11,24 +11,94 @@ divergir.
 `from agri_gz_bringup.vehicles import vehicle_nodes`.
 """
 
+import copy
+import os
 import tempfile
 from pathlib import Path
 
 import yaml
 
 from ament_index_python.packages import get_package_share_directory
+from launch.actions import SetEnvironmentVariable
 from launch.substitutions import Command
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from vehicle_control.launch_nodes import control_config, control_nodes
 
+from agri_gz_bringup.tags import tag_texture
 
-# Onde uma configuração de ponte deixa de ser infraestrutura e passa a ser sensores.
-# Todo `<robot>_gz/config/bridge.yaml` traz esta linha, e é por isso que um seguidor
-# criado sem sensores também chega sem os tópicos deles.
-SENSOR_MARKER = "# \u2500\u2500 Sensors "
-# E onde a câmera começa, abaixo dela: a câmera tem a própria chave.
-CAMERA_MARKER = "# \u2500\u2500 Camera "
+
+# Prefixo dos tópicos ROS da câmera na configuração da ponte. As entradas que começam
+# com ele são as da câmera; na montagem dupla viram as das duas câmeras.
+CAMERA = "camera_front"
+# Os nomes das câmeras de cada montagem.
+CAMERAS = {
+    "single": [CAMERA],
+    "dual": [f"{CAMERA}_left", f"{CAMERA}_right"],
+}
+# Vendor EGL da NVIDIA: sem ele o EGL escolhe o Mesa e a câmera não renderiza no container.
+NVIDIA_EGL = "/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+
+
+def convoy_line(leader, follower, followers, prefix, leader_name=""):
+    """Quem é cada veículo do comboio, do líder ao último seguidor.
+
+    O líder tem a tag 0 e não tem câmera; o seguidor k tem a tag k e câmera.
+    Devolve uma lista de dicionários com `robot`, `name`, `tag_id` e `camera`.
+    """
+    line = [{"robot": leader, "name": leader_name or leader, "tag_id": 0, "camera": False}]
+    line += [
+        {"robot": follower, "name": f"{prefix}_{k}", "tag_id": k, "camera": True}
+        for k in range(1, followers + 1)
+    ]
+    return line
+
+
+def bridge_config(text, name, camera_mount):
+    """As entradas da ponte de um veículo, a partir do `bridge.yaml` dele.
+
+    `{name}` vira o nome do modelo. Na montagem `dual`, as entradas da `camera_front`
+    são trocadas pelas das duas câmeras, `camera_front_left` e `camera_front_right`.
+    """
+    entries = yaml.safe_load(text.replace("{name}", name)) or []
+    if camera_mount != "dual":
+        return entries
+    result = []
+    for entry in entries:
+        if not entry["ros_topic_name"].startswith(f"{CAMERA}/"):
+            result.append(entry)
+            continue
+        for camera in CAMERAS["dual"]:
+            copy_ = copy.deepcopy(entry)
+            copy_["ros_topic_name"] = entry["ros_topic_name"].replace(
+                f"{CAMERA}/", f"{camera}/", 1)
+            copy_["gz_topic_name"] = entry["gz_topic_name"].replace(
+                f"/{CAMERA}/", f"/{camera}/")
+            result.append(copy_)
+    return result
+
+
+def has_camera(robot):
+    """Se o `bridge.yaml` do tipo de veículo traz tópicos de câmera."""
+    _, bridge = vehicle_files(robot)
+    return f'"{CAMERA}/' in bridge.read_text()
+
+
+def gz_args(world_path, gui):
+    """Argumentos do `gz sim`: `-s` sem janela e, sem tela, render por EGL."""
+    args = f"{world_path} -r -v 3"
+    if not gui:
+        args += " -s"
+        if not os.environ.get("DISPLAY"):
+            args += " --headless-rendering"
+    return args
+
+
+def egl_actions(gui):
+    """Ações de `launch` que apontam o EGL para a NVIDIA, quando não há tela."""
+    if gui or os.environ.get("DISPLAY") or not Path(NVIDIA_EGL).exists():
+        return []
+    return [SetEnvironmentVariable("__EGL_VENDOR_LIBRARY_FILENAMES", NVIDIA_EGL)]
 
 
 def vehicle_files(robot):
@@ -62,25 +132,26 @@ def spawn_height(robot):
     return float(yaml.safe_load(path.read_text())["z"])
 
 
-def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
+def vehicle_nodes(robot, name, namespace, pose, tag_id=0, tag_family="36h11", tag_size=0.5,
+                  camera=False, camera_mount="single", sensor_profile="default"):
     """Os nós de que uma máquina precisa e a configuração de ponte que eles dividem.
 
-    robot      o tipo do veículo: autonomous_tractor, pickup
-    name       o nome dele no Gazebo e o escopo dos seus tópicos gz
-    namespace  o namespace ROS sob o qual cai tudo o que é dele
-    pose       (x, y, z, yaw), como strings ou números; z vazio ou None
-               significa a altura de criação do próprio veículo (`spawn_height`)
-    sensors    false deixa câmera, GNSS e IMU fora deste veículo
-    camera     false deixa a câmera fora e mantém GNSS e IMU; None
-               equivale a `sensors`. Os seguidores de um comboio se localizam
-               com GNSS e IMU e não precisam da câmera, que é cara.
+    robot           o tipo do veículo: autonomous_tractor, pickup
+    name            o nome dele no Gazebo e o escopo dos seus tópicos gz
+    namespace       o namespace ROS sob o qual cai tudo o que é dele
+    pose            (x, y, z, yaw), como strings ou números; z vazio ou None
+                    significa a altura de criação do próprio veículo (`spawn_height`)
+    tag_id          o ID da tag na traseira; `tag_family` e `tag_size` (metros) a descrevem
+    camera          false deixa de fora os tópicos da câmera e o nó que a distorce;
+                    todo veículo tem GNSS, IMU e tag
+    camera_mount    `single` ou `dual`, só vai ao xacro de quem tem câmera
+    sensor_profile  `default`, `nominal` ou `ideal`: o perfil de GNSS e IMU
 
     O nome do modelo chega ao xacro porque os sensores usam um tópico gz
     absoluto (um relativo ficaria sob o nome do mundo também, e a ponte teria
     de acompanhá-lo), então o xacro precisa montá-lo.
     """
     model, bridge = vehicle_files(robot)
-    camera = sensors if camera is None else (camera and sensors)
     x, y, z, yaw = pose
     if z in (None, ""):
         z = spawn_height(robot)
@@ -106,11 +177,14 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
         Command([
             "xacro ", str(model),
             " name:=", name,
-            " sensors:=", "true" if sensors else "false",
-            " camera:=", "true" if camera else "false",
             " namespace:=", namespace,
             " controllers:=", controllers,
-        ]),
+            " tag_family:=", tag_family,
+            " tag_id:=", str(tag_id),
+            " tag_size:=", str(tag_size),
+            " tag_texture:=", tag_texture(tag_family, tag_id),
+            " sensor_profile:=", sensor_profile,
+        ] + ([" camera_mount:=", camera_mount] if camera else [])),
         value_type=str,
     )
 
@@ -119,20 +193,19 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
     # preenchido. `delete=False` porque a ponte o abre depois que a descrição do
     # `launch` foi montada; são algumas centenas de bytes no diretório temporário
     # do sistema, e o SO os recupera.
-    config = bridge.read_text()
-    if not sensors:
+    entries = bridge_config(bridge.read_text(), name, camera_mount)
+    if not camera:
         # Uma entrada da ponte cujo tópico gz não tem publicador ainda cria o
         # tópico ROS, e um tópico que existe e nunca carrega nada é pior que
-        # nenhum: é algo em que se inscrever e esperar para sempre. Por isso a
-        # metade de sensores do arquivo sai junto com os sensores.
-        config = config.split(SENSOR_MARKER)[0]
-    elif not camera:
-        config = config.split(CAMERA_MARKER)[0]
+        # nenhum: é algo em que se inscrever e esperar para sempre. Por isso as
+        # entradas da câmera saem junto com ela.
+        entries = [e for e in entries
+                   if not e["ros_topic_name"].startswith(f"{CAMERA}")]
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=f"_{name}_bridge.yaml", delete=False,
     ) as handle:
-        handle.write(config.replace("{name}", name))
-        bridge_config = handle.name
+        yaml.safe_dump(entries, handle)
+        bridge_config_file = handle.name
 
     nodes = [
         # `use_sim_time` em todo lugar: com o simulador conduzindo o relógio, um nó
@@ -174,10 +247,24 @@ def vehicle_nodes(robot, name, namespace, pose, sensors=True, camera=None):
             namespace=namespace,
             name=f"bridge_{name}",
             parameters=[{
-                "config_file": bridge_config,
+                "config_file": bridge_config_file,
                 "use_sim_time": True,
             }],
             output="screen",
         ),
     ]
+    # A imagem sai do Gazebo sem distorção (`image_ideal`); este nó aplica a de Brown do
+    # `camera_info` e publica `image_raw`, uma vez por câmera.
+    if camera:
+        nodes += [
+            Node(
+                package="agri_gz_bringup",
+                executable="camera_distortion",
+                namespace=namespace,
+                name=f"distortion_{camera_name}",
+                parameters=[{"camera": camera_name, "use_sim_time": True}],
+                output="screen",
+            )
+            for camera_name in CAMERAS[camera_mount]
+        ]
     return nodes + control_nodes(namespace, controllers)

@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+from agri_gz_bringup.camera_distortion import main
+
+main()

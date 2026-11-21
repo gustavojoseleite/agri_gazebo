@@ -24,14 +24,17 @@
   gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
 
+# Pose real do modelo, para medir o erro da localização. Vale para todo veículo,
+# com ou sem sensores, por isso vem antes do corte abaixo.
+- ros_topic_name: "/ground_truth/{name}/pose"
+  gz_topic_name: "/model/{name}/pose"
+  ros_type_name: "geometry_msgs/msg/PoseStamped"
+  gz_type_name: "gz.msgs.Pose"
+  direction: GZ_TO_ROS
+
 # ── Sensores ─────────────────────────────────────────────────────────────────
 #
-# Tudo abaixo desta linha é descartado quando um veículo é criado com
-# sensors:=false, que é como os seguidores de um comboio sobem: os tópicos gz
-# não existem nessas máquinas, e uma entrada da ponte para um tópico que
-# ninguém publica é um tópico ROS que existe e nunca carrega nada, o que é
-# pior que nenhum tópico. O agri_gz_bringup/agri_gz_bringup/vehicles.py corta
-# o arquivo aqui, então o marcador é estrutural: não o reescreva.
+# Todo veículo leva a pose real, o GNSS e a IMU.
 
 - ros_topic_name: "imu/data"
   gz_topic_name: "/model/{name}/imu"
@@ -47,13 +50,15 @@
 
 # ── Câmera ───────────────────────────────────────────────────────────────────
 #
-# Descartada também quando um veículo é criado com camera:=false (os seguidores
-# de um comboio). O vehicles.py corta aqui também: é estrutural, não o reescreva.
+# Descartada quando um veículo é criado sem câmera (o líder de um comboio). Na
+# montagem dupla, o agri_gz_bringup/agri_gz_bringup/vehicles.py troca estas entradas
+# pelas de `camera_front_left` e `camera_front_right`.
 
 # A câmera publica a imagem em um tópico próprio e a calibração em
 # <pai desse tópico>/camera_info, e por isso o tópico da imagem termina em
-# /image em vez de ser o nome da câmera.
-- ros_topic_name: "camera_front/image_raw"
+# /image em vez de ser o nome da câmera. A imagem sai SEM distorção, daí
+# `image_ideal`: o nó `camera_distortion` a distorce e publica `image_raw`.
+- ros_topic_name: "camera_front/image_ideal"
   gz_topic_name: "/model/{name}/camera_front/image"
   ros_type_name: "sensor_msgs/msg/Image"
   gz_type_name: "gz.msgs.Image"

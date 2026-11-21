@@ -51,7 +51,7 @@ from launch.substitutions import LaunchConfiguration
 
 # O que é preciso para subir um veículo fica no módulo `vehicles` deste pacote,
 # porque o convoy.launch.py precisa exatamente da mesma coisa cinco vezes.
-from agri_gz_bringup.vehicles import vehicle_nodes
+from agri_gz_bringup.vehicles import egl_actions, gz_args, has_camera, vehicle_nodes
 
 
 def launch_setup(context, *args, **kwargs):
@@ -75,13 +75,15 @@ def launch_setup(context, *args, **kwargs):
             Path(get_package_share_directory("ros_gz_sim")) / "launch" / "gz_sim.launch.py"
         )),
         launch_arguments={
-            "gz_args": f"{world_path} -r -v 3" + ("" if gui else " -s"),
+            "gz_args": gz_args(world_path, gui),
         }.items(),
     )
 
     pose = tuple(LaunchConfiguration(k).perform(context)
                  for k in ("x", "y", "z", "yaw"))
-    return [gz_sim, *vehicle_nodes(robot, name, namespace, pose)]
+    # Tag 0, e câmera se o tipo de veículo tiver.
+    return [*egl_actions(gui), gz_sim,
+            *vehicle_nodes(robot, name, namespace, pose, camera=has_camera(robot))]
 
 
 def generate_launch_description():
