@@ -22,6 +22,9 @@ WALL_TIMEOUT = 240.0
 def clock_publishers(command, ready_topics):
     """Sobe `command`, espera os `ready_topics` terem publicador e conta os do `/clock`."""
     env = dict(os.environ, ROS_DOMAIN_ID=str(random.randint(30, 99)))
+    # O Gazebo acha os tópicos por multicast, e o container usa a rede do host: uma partição
+    # própria impede que duas simulações ao mesmo tempo se misturem.
+    env['GZ_PARTITION'] = f'teste_{random.getrandbits(32):08x}'
     env.pop('DISPLAY', None)
     os.environ['ROS_DOMAIN_ID'] = env['ROS_DOMAIN_ID']
     process = subprocess.Popen(command, env=env, start_new_session=True,

@@ -29,6 +29,9 @@ WALL_TIMEOUT = 240.0
 @pytest.fixture(scope='module')
 def sim():
     env = dict(os.environ, ROS_DOMAIN_ID=str(random.randint(30, 99)))
+    # O Gazebo acha os tópicos por multicast, e o container usa a rede do host: uma partição
+    # própria impede que duas simulações ao mesmo tempo se misturem.
+    env['GZ_PARTITION'] = f'teste_{random.getrandbits(32):08x}'
     env.pop('DISPLAY', None)
     os.environ['ROS_DOMAIN_ID'] = env['ROS_DOMAIN_ID']
     process = subprocess.Popen(['ros2', 'launch', 'agri_gz_bringup', 'convoy.launch.py',
