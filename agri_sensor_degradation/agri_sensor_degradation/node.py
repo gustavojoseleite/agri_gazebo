@@ -12,7 +12,8 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import qos_profile_sensor_data
 
-from agri_sensor_degradation.core import EFFECTS, MODES, SCALAR_VALUES, Trigger
+from agri_sensor_degradation import profiles
+from agri_sensor_degradation.core import MODES, SCALAR_VALUES, Trigger
 from agri_sensor_degradation.sensors import GnssSensor, ImuSensor, OdometrySensor
 
 
@@ -20,6 +21,9 @@ from agri_sensor_degradation.sensors import GnssSensor, ImuSensor, OdometrySenso
 SCALAR_RANGES = {
     ('jumps', 'rate'): (0.0, 1.0),
     ('jumps', 'duration'): (0.0, 30.0),
+    ('jumps', 'min_fraction'): (0.0, 1.0),
+    ('jumps', 'duration_min'): (0.0, 30.0),
+    ('markov', 'tau'): (1.0, 3600.0),
     ('rate', 'max_hz'): (0.0, 100.0),
     ('delay', 'seconds'): (0.0, 2.0),
 }
@@ -31,6 +35,7 @@ def _channel_range(effect, full_scale):
         'scale': (0.5, 1.5),
         'bias': (-full_scale, full_scale),
         'drift': (-full_scale / 10.0, full_scale / 10.0),
+        'markov': (0.0, full_scale),
         'noise': (0.0, full_scale),
         'jumps': (0.0, 10.0 * full_scale),
     }[effect]
@@ -51,6 +56,8 @@ class DegradationParameters:
         self.position = None
         self._truth_sub = None
         self._truth_topic = ''
+        self._defaults = {}
+        self._profile_timer = None
 
         fraction_range = FloatingPointRange(from_value=0.0, to_value=1.0, step=0.01)
         node.declare_parameter('seed', int(sensor.seed))
@@ -69,12 +76,16 @@ class DegradationParameters:
             if hasattr(sensor, 'vertical_factor'):
                 node.declare_parameter('vertical_factor', float(sensor.vertical_factor),
                                        self._range(1.0, 5.0, 'Peso da altura nos efeitos.'))
+            node.declare_parameter('profile', '', ParameterDescriptor(
+                description='Perfil de degradação por nome; vazio deixa os padrões.'))
 
         self._state_pub = node.create_publisher(DiagnosticArray, 'degradation/state', 10)
         node.add_on_set_parameters_callback(self._validate)
         node.add_post_set_parameters_callback(self._on_changed)
         self._refresh()
         node.create_timer(1.0, self.publish_state)
+        if sensor.channels and self._value('profile'):
+            self._apply_profile()
 
     @staticmethod
     def _range(low, high, description=''):
@@ -85,8 +96,8 @@ class DegradationParameters:
     def _declare_effects(self):
         """Declara, para cada efeito, o gatilho e os valores, com a faixa de cada um."""
         node = self.node
-        for name in EFFECTS:
-            effect = self.sensor.effects[name]
+        for name, effect in self.sensor.effects.items():
+            self._defaults[f'{name}.enabled'] = False
             node.declare_parameter(f'{name}.enabled', False)
             node.declare_parameter(f'{name}.trigger', 'always')
             node.declare_parameter(f'{name}.window_start', 0.0)
@@ -94,7 +105,11 @@ class DegradationParameters:
             node.declare_parameter(f'{name}.zone', Parameter.Type.DOUBLE_ARRAY, ParameterDescriptor(
                 description='Polígono da zona: x0, y0, x1, y1, ...'))
             for key, default in effect.values.items():
-                if key in SCALAR_VALUES.get(name, {}):
+                self._defaults[f'{name}.{key}'] = float(default)
+                extra = getattr(self.sensor, 'extra_ranges', {})
+                if (name, key) in extra:
+                    low, high = extra[(name, key)]
+                elif key in SCALAR_VALUES.get(name, {}):
                     low, high = SCALAR_RANGES[(name, key)]
                 else:
                     full_scale = self.sensor.channels[key].full_scale
@@ -106,8 +121,12 @@ class DegradationParameters:
         return self.node.get_parameter(name).value
 
     def _validate(self, parameters):
-        """Recusa fração fora de [0, 1] e gatilho desconhecido."""
+        """Recusa fração fora de [0, 1], gatilho e perfil desconhecidos."""
         for parameter in parameters:
+            if parameter.name == 'profile' and parameter.value and \
+                    parameter.value not in profiles.names(self.sensor.name):
+                return SetParametersResult(
+                    successful=False, reason=f'perfil desconhecido: {parameter.value!r}')
             if parameter.name.endswith('.trigger') and parameter.value not in MODES:
                 return SetParametersResult(
                     successful=False, reason=f'gatilho desconhecido: {parameter.value!r}')
@@ -123,6 +142,23 @@ class DegradationParameters:
         if any(p.name == 'seed' for p in parameters) and self.sensor.seed != previous_seed:
             self.sensor.reseed(self.sensor.seed)
         self.publish_state()
+        if any(p.name == 'profile' for p in parameters) and self._profile_timer is None:
+            # Gravar parâmetros dentro do próprio callback não é seguro: fica para um timer.
+            self._profile_timer = self.node.create_timer(0.01, self._apply_profile_once)
+
+    def _apply_profile_once(self):
+        """Aplica o perfil escolhido e destrói o timer que a chamou."""
+        self.node.destroy_timer(self._profile_timer)
+        self._profile_timer = None
+        self._apply_profile()
+
+    def _apply_profile(self):
+        """Grava os padrões de todos os efeitos e, por cima, os valores do perfil."""
+        name = self._value('profile')
+        values = dict(self._defaults)
+        if name:
+            values.update(profiles.load(self.sensor.name, name))
+        self.node.set_parameters([Parameter(key, value=value) for key, value in values.items()])
 
     def _refresh(self):
         """Lê todos os parâmetros e os copia para o sensor."""
@@ -148,8 +184,7 @@ class DegradationParameters:
 
     def _refresh_effects(self):
         """Copia os parâmetros dos efeitos para o sensor."""
-        for name in EFFECTS:
-            effect = self.sensor.effects[name]
+        for name, effect in self.sensor.effects.items():
             effect.enabled = bool(self._value(f'{name}.enabled'))
             effect.trigger = self._trigger(name)
             for key in effect.values:

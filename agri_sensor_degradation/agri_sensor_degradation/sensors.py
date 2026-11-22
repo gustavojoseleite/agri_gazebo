@@ -101,11 +101,32 @@ class OdometrySensor(SensorBase):
     input_topic = 'odom_ideal'
     output_topic = 'odom'
     channels = {'linear': Channel(1, 1.0), 'angular': Channel(1, 0.5)}
+    extra_effects = {'slip': {'rate': 0.0, 'duration': 2.0, 'fraction': 0.0}}
+    # Faixas dos parâmetros próprios, para o nó validar.
+    extra_ranges = {('slip', 'rate'): (0, 1), ('slip', 'duration'): (0, 30),
+                    ('slip', 'fraction'): (0, 1)}
 
     def __init__(self, seed=0):
         super().__init__(seed)
         self._pose = None
         self._pose_t = None
+        self._slip_end = None
+
+    def extra_chain(self, values, t, dt, active):
+        """Patinagem: num episódio, a velocidade linear sai multiplicada por 1 + fraction."""
+        if not active['slip']:
+            self._slip_end = None
+            return values
+        slip = self.effects['slip'].values
+        if self._slip_end is not None and t >= self._slip_end:
+            self._slip_end = None
+        if self._slip_end is None:
+            rate = slip['rate']
+            if rate > 0 and self.rng.random() < 1.0 - np.exp(-rate * dt):
+                self._slip_end = t + slip['duration']
+        if self._slip_end is not None:
+            values['linear'] = values['linear'] * (1.0 + slip['fraction'])
+        return values
 
     def idle(self, msg, t):
         """Sem efeito ativo a pose é a ideal; zera o integrador."""

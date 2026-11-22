@@ -1,9 +1,10 @@
 """Testes dos efeitos gerais da degradação (F1.4a, R1), em Python puro.
 
-A classe base aplica os efeitos em cadeia: escala, viés, deriva, ruído, saltos, congelamento,
-queda de taxa e atraso. Cada sensor diz as grandezas que tem (`channels`), como lê os números da
-mensagem (`read`) e como grava os números degradados numa mensagem nova (`write`). Aqui, um sensor
-de brinquedo com duas grandezas: `a` (2 eixos) e `b` (1 eixo).
+A classe base aplica os efeitos em cadeia: escala, viés, deriva, erro correlacionado (`markov`,
+F1.4b), ruído, saltos, congelamento, queda de taxa e atraso. Cada sensor diz as grandezas que tem
+(`channels`), como lê os números da mensagem (`read`) e como grava os números degradados numa
+mensagem nova (`write`). Aqui, um sensor de brinquedo com duas grandezas: `a` (2 eixos) e `b`
+(1 eixo).
 
 `set_effect(nome, trigger=None, **valores)` liga um efeito (gatilho padrão: sempre) e guarda os
 valores; `effects[nome]` tem `enabled`, `trigger` e `values`. `release(t)` devolve as mensagens
@@ -53,7 +54,8 @@ def feed(sensor, seconds, hz=HZ, start=0.0, a=(1.0, 2.0)):
 
 
 def test_effect_names_and_order():
-    assert EFFECTS == ('scale', 'bias', 'drift', 'noise', 'jumps', 'freeze', 'rate', 'delay')
+    assert EFFECTS == ('scale', 'bias', 'drift', 'markov', 'noise', 'jumps', 'freeze', 'rate',
+                       'delay')
 
 
 def test_all_off_passes_the_same_message():

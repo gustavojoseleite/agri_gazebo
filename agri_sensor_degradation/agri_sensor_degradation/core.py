@@ -5,12 +5,13 @@ Python puro, sem `rclpy`: tudo aqui roda e é testado fora do ROS.
 import numpy as np
 
 MODES = ('always', 'window', 'zone')
-EFFECTS = ('scale', 'bias', 'drift', 'noise', 'jumps', 'freeze', 'rate', 'delay')
+EFFECTS = ('scale', 'bias', 'drift', 'markov', 'noise', 'jumps', 'freeze', 'rate', 'delay')
 
 # Valores de um efeito que não são por grandeza, com o padrão de cada um. O `jumps` tem também
-# a amplitude por grandeza.
+# a amplitude por grandeza; o `markov`, o σ por grandeza.
 SCALAR_VALUES = {
-    'jumps': {'rate': 0.0, 'duration': 1.0},
+    'markov': {'tau': 60.0},
+    'jumps': {'rate': 0.0, 'duration': 1.0, 'min_fraction': 1.0, 'duration_min': 0.0},
     'rate': {'max_hz': 0.0},
     'delay': {'seconds': 0.0},
     'freeze': {},
@@ -80,10 +81,13 @@ class Channel:
 class Effect:
     """Um efeito: desligado de início, com o próprio gatilho e os valores que ele usa."""
 
-    def __init__(self, name, channels):
+    def __init__(self, name, channels, defaults=None):
         self.name = name
         self.enabled = False
         self.trigger = Trigger('always')
+        if defaults is not None:
+            self.values = dict(defaults)
+            return
         if name in SCALAR_VALUES:
             self.values = dict(SCALAR_VALUES[name])
         else:
@@ -101,12 +105,17 @@ class SensorBase:
     input_topic = ''
     output_topic = ''
     channels = {}
+    # Efeitos próprios do sensor: nome -> valores padrão (sem grandeza).
+    extra_effects = {}
 
     def __init__(self, seed=0):
         self.loss = Loss()
         self.effects = {name: Effect(name, self.channels) for name in EFFECTS}
-        self._effect_active = {name: False for name in EFFECTS}
+        for name, defaults in self.extra_effects.items():
+            self.effects[name] = Effect(name, self.channels, defaults)
+        self._effect_active = {name: False for name in self.effects}
         self._drift_start = None
+        self._markov = None
         self._jump = None
         self._last_t = None
         self._last_values = None
@@ -146,6 +155,10 @@ class SensorBase:
     def idle(self, msg, t):
         """Gancho: chamado quando a mensagem passa sem nenhum efeito ativo."""
 
+    def extra_chain(self, values, t, dt, active):
+        """Gancho: aplica os efeitos próprios no fim da cadeia; o padrão devolve `values`."""
+        return values
+
     def weights(self, channel):
         """Peso de cada eixo da grandeza nos efeitos aditivos (padrão: uns)."""
         return np.ones(self.channels[channel].size)
@@ -161,10 +174,12 @@ class SensorBase:
         if self.loss.drops(t, position, self.rng):
             self.dropped += 1
             return None
-        active = {name: self._active_of(name, t, position) for name in EFFECTS}
+        active = {name: self._active_of(name, t, position) for name in self.effects}
         self._effect_active = active
         if not active['drift']:
             self._drift_start = None
+        if not active['markov']:
+            self._markov = None
         dt = 0.0 if self._last_t is None else t - self._last_t
         self._last_t = t
         if not any(active.values()):
@@ -204,7 +219,7 @@ class SensorBase:
         return {k: v.copy() for k, v in self._last_values.items()}
 
     def _chain(self, msg, t, dt, active):
-        """Escala, viés, deriva, ruído e saltos, por grandeza; devolve (valores, sigmas)."""
+        """Escala, viés, deriva, Markov, ruído, saltos e extras; devolve (valores, sigmas)."""
         values = {k: np.asarray(v, dtype=float).copy() for k, v in self.read(msg).items()}
         weights = {k: np.asarray(self.weights(k), dtype=float) for k in values}
         if active['scale']:
@@ -221,18 +236,43 @@ class SensorBase:
                 rate = self.effects['drift'].values.get(k, 0.0)
                 values[k] = values[k] + rate * elapsed * weights[k]
         sigmas = None
+        variances = {k: np.zeros_like(weights[k]) for k in values}
+        if active['markov']:
+            self._markov_step(values, dt, weights)
+            for k in values:
+                variances[k] = variances[k] + (self.effects['markov'].values.get(k, 0.0)
+                                               * weights[k]) ** 2
         if active['noise']:
-            sigmas = {}
             for k in values:
                 sigma = self.effects['noise'].values.get(k, 0.0) * weights[k]
-                sigmas[k] = sigma
+                variances[k] = variances[k] + sigma ** 2
                 values[k] = values[k] + self.rng.normal(size=values[k].shape) * sigma
+        if active['noise'] or active['markov']:
+            sigmas = {k: np.sqrt(variances[k]) for k in values}
         if active['jumps']:
             offsets = self._jump_offsets(t, dt, weights)
             if offsets is not None:
                 for k in values:
                     values[k] = values[k] + offsets[k]
+        values = self.extra_chain(values, t, dt, active)
         return values, sigmas
+
+    def _markov_step(self, values, dt, weights):
+        """Soma o erro de Gauss–Markov; o primeiro passo sorteia o regime estacionário."""
+        markov = self.effects['markov'].values
+        tau = markov['tau']
+        a = float(np.exp(-dt / tau)) if tau > 0 else 0.0
+        first = self._markov is None
+        if first:
+            self._markov = {}
+        for k in values:
+            sigma = markov.get(k, 0.0) * weights[k]
+            noise = self.rng.normal(size=values[k].shape)
+            if first:
+                self._markov[k] = sigma * noise
+            else:
+                self._markov[k] = self._markov[k] * a + sigma * np.sqrt(1.0 - a * a) * noise
+            values[k] = values[k] + self._markov[k]
 
     def _jump_offsets(self, t, dt, weights):
         """Deslocamento do salto em curso; sorteia um novo se não há salto e a sorte pedir."""
@@ -241,11 +281,18 @@ class SensorBase:
         if self._jump is None:
             rate = self.effects['jumps'].values['rate']
             if rate > 0 and self.rng.random() < 1.0 - np.exp(-rate * dt):
+                jumps = self.effects['jumps'].values
+                factor = 1.0
+                if jumps['min_fraction'] < 1.0:
+                    factor = self.rng.uniform(jumps['min_fraction'], 1.0)
+                length = jumps['duration']
+                if jumps['duration_min'] > 0:
+                    length = self.rng.uniform(jumps['duration_min'], length)
                 offsets = {}
                 for k, channel in self.channels.items():
-                    amplitude = self.effects['jumps'].values.get(k, 0.0)
+                    amplitude = jumps.get(k, 0.0) * factor
                     offsets[k] = self._direction(channel.size) * amplitude * weights[k]
-                self._jump = (t + self.effects['jumps'].values['duration'], offsets)
+                self._jump = (t + length, offsets)
         return None if self._jump is None else self._jump[1]
 
     def _direction(self, size):
@@ -265,7 +312,7 @@ class SensorBase:
             'received': str(self.received),
             'dropped': str(self.dropped),
         }
-        for name in EFFECTS:
+        for name in self.effects:
             state[f'{name}_enabled'] = str(self.effects[name].enabled).lower()
             state[f'{name}_active'] = str(self._effect_active[name]).lower()
         return state

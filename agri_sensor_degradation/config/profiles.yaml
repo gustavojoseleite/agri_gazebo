@@ -1,0 +1,44 @@
+# Perfis de degradação de campo, por sensor. Cada perfil mapeia o nome de um parâmetro ao valor.
+# Os valores vêm da seção 5.5 do plano de implementação. As zonas de perda ficam fora, porque
+# dependem do mapa.
+gnss:
+  # RTK flutuante: σh de 0,3 m dividido por √2 em cada eixo horizontal.
+  rtk_float:
+    markov.enabled: true
+    markov.position: 0.212132
+    markov.tau: 60.0
+    jumps.enabled: true
+    jumps.rate: 0.008333
+    jumps.position: 2.0
+    jumps.min_fraction: 0.25
+    jumps.duration_min: 1.0
+    jumps.duration: 3.0
+  # DGNSS: σh de 0,7 m dividido por √2 em cada eixo horizontal.
+  dgnss:
+    markov.enabled: true
+    markov.position: 0.494975
+    markov.tau: 60.0
+    jumps.enabled: true
+    jumps.rate: 0.008333
+    jumps.position: 2.0
+    jumps.min_fraction: 0.25
+    jumps.duration_min: 1.0
+    jumps.duration: 3.0
+imu:
+  # IMU MEMS: ruído branco e instabilidade de viés do giroscópio de 10°/h.
+  mems:
+    noise.enabled: true
+    noise.gyro: 0.005
+    noise.accel: 0.02
+    markov.enabled: true
+    markov.gyro: 4.8481e-05
+    markov.tau: 300.0
+odometry:
+  # Odometria de campo: escala de 2 % e uma patinagem de 10 % a cada 60 s, por 2 s.
+  field:
+    scale.enabled: true
+    scale.linear: 1.02
+    slip.enabled: true
+    slip.rate: 0.016667
+    slip.duration: 2.0
+    slip.fraction: 0.1
