@@ -32,7 +32,7 @@ def rig():
     received, states = [], []
     probe.create_subscription(Imu, '/v/imu/data', received.append, 10)
     probe.create_subscription(DiagnosticArray, '/v/degradation/state', states.append, 10)
-    ideal = probe.create_publisher(Imu, '/v/imu/data_ideal', 10)
+    ideal = probe.create_publisher(Imu, '/v/_sim/imu/data', 10)
     for node in (sensor, probe):
         executor.add_node(node)
 

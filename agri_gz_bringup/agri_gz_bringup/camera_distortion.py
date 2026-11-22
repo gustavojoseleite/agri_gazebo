@@ -1,7 +1,7 @@
 """Nó que aplica a distorção de Brown à imagem da câmera.
 
 O Gazebo Harmonic publica os coeficientes de Brown no `camera_info`, mas o ogre2 não distorce
-a imagem renderizada. Este nó assina `<câmera>/image_ideal` e `<câmera>/camera_info` e publica
+a imagem renderizada. Este nó assina `_sim/<câmera>/image` e `<câmera>/camera_info` e publica
 `<câmera>/image_raw` já distorcida, com o mesmo cabeçalho. Como gera a imagem da câmera, é
 também o nó que a degrada: tem os parâmetros `loss.*` e publica `degradation/state`; uma imagem
 perdida simplesmente não é publicada.
@@ -30,7 +30,7 @@ class CameraDistortion(Node):
         self._distorter = None
         self._pub = self.create_publisher(Image, f'{camera}/image_raw', 10)
         self.create_subscription(CameraInfo, f'{camera}/camera_info', self._on_info, 10)
-        self.create_subscription(Image, f'{camera}/image_ideal', self._on_image,
+        self.create_subscription(Image, f'_sim/{camera}/image', self._on_image,
                                  qos_profile_sensor_data)
 
     def _on_info(self, msg):

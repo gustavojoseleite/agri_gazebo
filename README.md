@@ -819,7 +819,7 @@ desconhecido dá `ValueError`. O arquivo se chama `tag<família>_<ID>.png` e, se
 ### A distorção da câmera
 
 O Gazebo Harmonic publica os coeficientes de Brown no `camera_info`, mas o ogre2 não distorce a
-imagem. O nó `camera_distortion` assina `<câmera>/image_ideal` e `<câmera>/camera_info` e publica
+imagem. O nó `camera_distortion` assina `_sim/<câmera>/image` e `<câmera>/camera_info` e publica
 `<câmera>/image_raw` distorcida, com o mesmo cabeçalho. O nome da câmera é o parâmetro `camera`
 (padrão `camera_front`), relativo ao namespace do nó. Com `D` nulo, a imagem é repassada sem
 alteração.
@@ -841,7 +841,7 @@ Os dois valores do GNSS são o desvio horizontal e o vertical, em metros.
 O trator sempre leva câmera: 120 graus, 1280x720, a 10 Hz, sem `<noise>` e com `<distortion>`
 (`camera_k1`, `camera_k2`, `camera_k3`, `camera_p1` e `camera_p2`; padrão -0,10, 0,01, 0, 0 e 0).
 Com `camera_mount:=dual` são duas câmeras de 90 graus, `camera_front_left` e `camera_front_right`.
-A ponte leva a imagem para `camera_front/image_ideal`, e o nó `camera_distortion` publica
+A ponte leva a imagem para `_sim/camera_front/image`, e o nó `camera_distortion` publica
 `camera_front/image_raw`. A pickup não tem câmera.
 
 A textura da tag (o argumento `tag_texture` do xacro, o PNG que a função `tag_texture()` grava) vai
@@ -927,10 +927,13 @@ qual converter: todos estes mundos levam o mesmo, Bebedouro/SP.
 
 O `agri_sensor_degradation` degrada o sinal dos sensores simulados (GNSS, IMU, odometria, câmera e
 detecção de tags). O princípio é que **a degradação fica no nó que gera o sinal**: o simulador
-publica o tópico ideal (`gnss/fix_ideal`, `imu/data_ideal`, `odom_ideal`,
-`camera_front/image_ideal`, `detections_ideal`) e o nó de degradação publica o normal (`gnss/fix`,
+publica o tópico ideal (`_sim/gnss/fix`, `_sim/imu/data`, `_sim/odom`,
+`_sim/camera_front/image`, `_sim/detections`) e o nó de degradação publica o normal (`gnss/fix`,
 `imu/data`, `odom`, `camera_front/image_raw`, `detections`), que é o que os outros nós consomem.
-Quem consome não sabe que o sinal foi degradado.
+Quem consome não sabe que o sinal foi degradado. Cada sensor tem um tópico só: o ideal é interno e
+oculto, porque o trecho `_sim` começa com `_`, e o `ros2 topic list` só o mostra com
+`--include-hidden-topics`. O mesmo tópico normal leva o sinal ideal, o nominal (o `sensor_profile`
+do Gazebo) ou o degradado (o `profile` e os parâmetros do nó).
 
 O núcleo (`agri_sensor_degradation/core.py`) é Python puro, sem `rclpy`: `Trigger` diz quando a
 degradação está ativa (`always`, `window` ou `zone`), `Loss` decide a perda de mensagens e
@@ -960,13 +963,13 @@ ros2 run agri_sensor_degradation sensors --ros-args -r __ns:=/<veículo>
 
 Em cada veículo, `vehicle_nodes` (em `agri_gz_bringup/vehicles.py`) monta a cadeia
 Gazebo → ponte → nó do sensor. O `bridge.yaml` de cada `<veículo>_gz` entrega o GNSS em
-`gnss/fix_ideal` e a IMU em `imu/data_ideal`; os controladores publicam a odometria em
-`odom_ideal` (a opção `odom_topic` do `vehicle_control`). O executável `sensors`, que sobe no
+`_sim/gnss/fix` e a IMU em `_sim/imu/data`; os controladores publicam a odometria em
+`_sim/odom` (a opção `odom_topic` do `vehicle_control`). O executável `sensors`, que sobe no
 namespace do veículo, lê esses três tópicos e publica `gnss/fix`, `imu/data` e `odom`. Os nós
 recebem `use_sim_time` e o `ground_truth_topic` do veículo, `/ground_truth/<nome>/pose`, que o
 gatilho `zone` usa para saber onde ele está.
 
-A câmera segue o mesmo princípio. O nó `camera_distortion` lê `camera_front/image_ideal`, aplica a
+A câmera segue o mesmo princípio. O nó `camera_distortion` lê `_sim/camera_front/image`, aplica a
 distorção de Brown e publica `camera_front/image_raw`. Ele também recebe os parâmetros `loss.*`, os
 efeitos da câmera e o `ground_truth_topic`, e uma imagem perdida não é publicada.
 

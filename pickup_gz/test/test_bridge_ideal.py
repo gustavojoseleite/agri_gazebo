@@ -12,8 +12,8 @@ BRIDGE = Path(__file__).resolve().parents[1] / 'config' / 'bridge.yaml'
 
 
 @pytest.mark.parametrize('gz, ideal, normal', [
-    ('/model/{name}/navsat', 'gnss/fix_ideal', 'gnss/fix'),
-    ('/model/{name}/imu', 'imu/data_ideal', 'imu/data'),
+    ('/model/{name}/navsat', '_sim/gnss/fix', 'gnss/fix'),
+    ('/model/{name}/imu', '_sim/imu/data', 'imu/data'),
 ])
 def test_sensor_goes_to_the_ideal_topic(gz, ideal, normal):
     entries = yaml.safe_load(BRIDGE.read_text())

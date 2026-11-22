@@ -37,13 +37,13 @@
 #
 # Todo veículo leva a pose real, o GNSS e a IMU.
 
-- ros_topic_name: "imu/data_ideal"
+- ros_topic_name: "_sim/imu/data"
   gz_topic_name: "/model/{name}/imu"
   ros_type_name: "sensor_msgs/msg/Imu"
   gz_type_name: "gz.msgs.IMU"
   direction: GZ_TO_ROS
 
-- ros_topic_name: "gnss/fix_ideal"
+- ros_topic_name: "_sim/gnss/fix"
   gz_topic_name: "/model/{name}/navsat"
   ros_type_name: "sensor_msgs/msg/NavSatFix"
   gz_type_name: "gz.msgs.NavSat"
@@ -58,8 +58,8 @@
 # A câmera publica a imagem em um tópico próprio e a calibração em
 # <pai desse tópico>/camera_info, e por isso o tópico da imagem termina em
 # /image em vez de ser o nome da câmera. A imagem sai SEM distorção, daí
-# `image_ideal`: o nó `camera_distortion` a distorce e publica `image_raw`.
-- ros_topic_name: "camera_front/image_ideal"
+# Num tópico oculto (`_sim/...`): o nó `camera_distortion` a distorce e publica `image_raw`.
+- ros_topic_name: "_sim/camera_front/image"
   gz_topic_name: "/model/{name}/camera_front/image"
   ros_type_name: "sensor_msgs/msg/Image"
   gz_type_name: "gz.msgs.Image"

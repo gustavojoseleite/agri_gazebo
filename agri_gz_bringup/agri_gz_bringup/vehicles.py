@@ -13,6 +13,7 @@ divergir.
 
 import copy
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -67,15 +68,17 @@ def bridge_config(text, name, camera_mount, clock=True):
         entries = [e for e in entries if e["ros_topic_name"] != "/clock"]
     if camera_mount != "dual":
         return entries
+    # A câmera pode estar em qualquer trecho do nome (ex.: o oculto `_sim/camera_front/image`).
+    segment = re.compile(rf"(^|/){CAMERA}/")
     result = []
     for entry in entries:
-        if not entry["ros_topic_name"].startswith(f"{CAMERA}/"):
+        if not segment.search(entry["ros_topic_name"]):
             result.append(entry)
             continue
         for camera in CAMERAS["dual"]:
             copy_ = copy.deepcopy(entry)
-            copy_["ros_topic_name"] = entry["ros_topic_name"].replace(
-                f"{CAMERA}/", f"{camera}/", 1)
+            copy_["ros_topic_name"] = segment.sub(
+                rf"\g<1>{camera}/", entry["ros_topic_name"], count=1)
             copy_["gz_topic_name"] = entry["gz_topic_name"].replace(
                 f"/{CAMERA}/", f"/{camera}/")
             result.append(copy_)
@@ -261,7 +264,7 @@ def vehicle_nodes(robot, name, namespace, pose, tag_id=0, tag_family="36h11", ta
             output="screen",
         ),
 
-        # GNSS, IMU e odometria chegam pelos tópicos `_ideal`; este processo publica os
+        # GNSS, IMU e odometria chegam pelos tópicos ocultos `_sim/...`; este processo publica os
         # normais, degradados conforme os parâmetros `loss.*` de cada nó.
         Node(
             package="agri_sensor_degradation",
@@ -271,7 +274,7 @@ def vehicle_nodes(robot, name, namespace, pose, tag_id=0, tag_family="36h11", ta
             output="screen",
         ),
     ]
-    # A imagem sai do Gazebo sem distorção (`image_ideal`); este nó aplica a de Brown do
+    # A imagem sai do Gazebo sem distorção (`_sim/<câmera>/image`); este nó aplica a de Brown do
     # `camera_info` e publica `image_raw`, uma vez por câmera.
     if camera:
         nodes += [
@@ -289,4 +292,4 @@ def vehicle_nodes(robot, name, namespace, pose, tag_id=0, tag_family="36h11", ta
             )
             for camera_name in CAMERAS[camera_mount]
         ]
-    return nodes + control_nodes(namespace, controllers, odom_topic="odom_ideal")
+    return nodes + control_nodes(namespace, controllers, odom_topic="_sim/odom")
