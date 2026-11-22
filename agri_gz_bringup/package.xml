@@ -17,6 +17,7 @@
        genérico, os veículos dependem dele, nunca o contrário. -->
   <exec_depend>agri_gz_worlds</exec_depend>
   <exec_depend>vehicle_control</exec_depend>
+  <exec_depend>agri_sensor_degradation</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

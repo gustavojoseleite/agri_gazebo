@@ -213,6 +213,8 @@ def vehicle_nodes(robot, name, namespace, pose, tag_id=0, tag_family="36h11", ta
         yaml.safe_dump(entries, handle)
         bridge_config_file = handle.name
 
+    # A pose real do veículo, que os nós de degradação usam no gatilho por zona.
+    ground_truth = f"/ground_truth/{name}/pose"
     nodes = [
         # `use_sim_time` em todo lugar: com o simulador conduzindo o relógio, um nó
         # deixado no tempo real produz erros de extrapolação de TF que parecem um
@@ -258,6 +260,16 @@ def vehicle_nodes(robot, name, namespace, pose, tag_id=0, tag_family="36h11", ta
             }],
             output="screen",
         ),
+
+        # GNSS, IMU e odometria chegam pelos tópicos `_ideal`; este processo publica os
+        # normais, degradados conforme os parâmetros `loss.*` de cada nó.
+        Node(
+            package="agri_sensor_degradation",
+            executable="sensors",
+            namespace=namespace,
+            parameters=[{"use_sim_time": True, "ground_truth_topic": ground_truth}],
+            output="screen",
+        ),
     ]
     # A imagem sai do Gazebo sem distorção (`image_ideal`); este nó aplica a de Brown do
     # `camera_info` e publica `image_raw`, uma vez por câmera.
@@ -268,9 +280,13 @@ def vehicle_nodes(robot, name, namespace, pose, tag_id=0, tag_family="36h11", ta
                 executable="camera_distortion",
                 namespace=namespace,
                 name=f"distortion_{camera_name}",
-                parameters=[{"camera": camera_name, "use_sim_time": True}],
+                parameters=[{
+                    "camera": camera_name,
+                    "use_sim_time": True,
+                    "ground_truth_topic": ground_truth,
+                }],
                 output="screen",
             )
             for camera_name in CAMERAS[camera_mount]
         ]
-    return nodes + control_nodes(namespace, controllers)
+    return nodes + control_nodes(namespace, controllers, odom_topic="odom_ideal")

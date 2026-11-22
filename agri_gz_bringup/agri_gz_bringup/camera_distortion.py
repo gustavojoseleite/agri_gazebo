@@ -2,7 +2,9 @@
 
 O Gazebo Harmonic publica os coeficientes de Brown no `camera_info`, mas o ogre2 não distorce
 a imagem renderizada. Este nó assina `<câmera>/image_ideal` e `<câmera>/camera_info` e publica
-`<câmera>/image_raw` já distorcida, com o mesmo cabeçalho.
+`<câmera>/image_raw` já distorcida, com o mesmo cabeçalho. Como gera a imagem da câmera, é
+também o nó que a degrada: tem os parâmetros `loss.*` e publica `degradation/state`; uma imagem
+perdida simplesmente não é publicada.
 """
 
 import numpy as np
@@ -13,6 +15,8 @@ from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import CameraInfo, Image
 
 from agri_gz_bringup.distortion import Distorter
+from agri_sensor_degradation.node import DegradationParameters
+from agri_sensor_degradation.sensors import CameraSensor
 
 
 class CameraDistortion(Node):
@@ -21,6 +25,7 @@ class CameraDistortion(Node):
         super().__init__('camera_distortion')
         camera = self.declare_parameter('camera', 'camera_front').value
         self._bridge = CvBridge()
+        self._degradation = DegradationParameters(self, CameraSensor())
         self._key = None
         self._distorter = None
         self._pub = self.create_publisher(Image, f'{camera}/image_raw', 10)
@@ -44,13 +49,17 @@ class CameraDistortion(Node):
         if self._key is None:
             return
         if self._distorter is None:
-            self._pub.publish(msg)
+            msg = self._degradation.apply(msg)
+            if msg is not None:
+                self._pub.publish(msg)
             return
         ideal = self._bridge.imgmsg_to_cv2(msg)
         distorted = self._distorter.apply(ideal)
         out = self._bridge.cv2_to_imgmsg(distorted, encoding=msg.encoding)
         out.header = msg.header
-        self._pub.publish(out)
+        out = self._degradation.apply(out)
+        if out is not None:
+            self._pub.publish(out)
 
 
 def main(args=None):

@@ -37,13 +37,13 @@
 #
 # Todo veículo leva a pose real, o GNSS e a IMU.
 
-- ros_topic_name: "imu/data"
+- ros_topic_name: "imu/data_ideal"
   gz_topic_name: "/model/{name}/imu"
   ros_type_name: "sensor_msgs/msg/Imu"
   gz_type_name: "gz.msgs.IMU"
   direction: GZ_TO_ROS
 
-- ros_topic_name: "gnss/fix"
+- ros_topic_name: "gnss/fix_ideal"
   gz_topic_name: "/model/{name}/navsat"
   ros_type_name: "sensor_msgs/msg/NavSatFix"
   gz_type_name: "gz.msgs.NavSat"
