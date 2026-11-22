@@ -935,8 +935,8 @@ Quem consome não sabe que o sinal foi degradado.
 O núcleo (`agri_sensor_degradation/core.py`) é Python puro, sem `rclpy`: `Trigger` diz quando a
 degradação está ativa (`always`, `window` ou `zone`), `Loss` decide a perda de mensagens e
 `SensorBase` aplica a perda com um gerador de semente fixa e conta as mensagens recebidas e
-perdidas. Além da perda, a `SensorBase` aplica oito efeitos em cadeia (`EFFECTS`: `scale`, `bias`,
-`drift`, `noise`, `jumps`, `freeze`, `rate` e `delay`), cada um com `enabled` e o próprio
+perdidas. Além da perda, a `SensorBase` aplica nove efeitos em cadeia (`EFFECTS`: `scale`, `bias`,
+`drift`, `markov`, `noise`, `jumps`, `freeze`, `rate` e `delay`), cada um com `enabled` e o próprio
 gatilho; `set_effect` liga um deles e `release` devolve as mensagens que o atraso reteve. Cada
 sensor declara as grandezas em `channels` (`Channel`) e os ganchos `read`, `write`, `idle` e
 `weights`. `agri_sensor_degradation/sensors.py` traz uma classe por sensor: `GnssSensor`,
@@ -992,10 +992,10 @@ ros2 topic echo /tractor_1/degradation/state
 
 ### Os efeitos nos nós
 
-Os nós `gnss`, `imu` e `odometry` declaram, além do `loss.*`, os parâmetros dos oito efeitos. A
+Os nós `gnss`, `imu` e `odometry` declaram, além do `loss.*`, os parâmetros dos nove efeitos. A
 câmera e a detecção de tags seguem só com o `loss.*`; os efeitos na câmera ficam para a F1.4c.
-Em cada mensagem a cadeia aplica, nesta ordem, `scale`, `bias`, `drift`, `noise` e `jumps` (os
-efeitos de valor); depois `freeze` (repete a última mensagem), `rate` (limita a taxa) e `delay`
+Em cada mensagem a cadeia aplica, nesta ordem, `scale`, `bias`, `drift`, `markov`, `noise` e `jumps`
+(os efeitos de valor); depois `freeze` (repete a última mensagem), `rate` (limita a taxa) e `delay`
 (retém a mensagem; um timer de 10 ms no nó publica o que já pode sair). Para cada efeito `<e>`
 existem `<e>.enabled` (falso), `<e>.trigger` (`always`, `window` ou `zone`), `<e>.window_start`,
 `<e>.window_end` e `<e>.zone`, lidos como os do `loss`. Os valores têm faixa declarada e viram
@@ -1010,6 +1010,10 @@ slider no `rqt_reconfigure`; a faixa sai do fundo de escala (`fs`) de cada grand
 | `jumps.<grandeza>` | 0 a 10·`fs` (amplitude do salto) |
 | `jumps.rate` | 0 a 1 (saltos por segundo) |
 | `jumps.duration` | 0 a 30 s (padrão 1) |
+| `jumps.min_fraction` | 0 a 1 (padrão 1) |
+| `jumps.duration_min` | 0 a 30 s (padrão 0) |
+| `markov.<grandeza>` | 0 a `fs` (desvio padrão estacionário) |
+| `markov.tau` | 1 a 3600 s (padrão 60) |
 | `rate.max_hz` | 0 a 100 |
 | `delay.seconds` | 0 a 2 |
 
@@ -1032,4 +1036,42 @@ mensagem sai com a covariância diagonal σ² de cada grandeza. Por exemplo, par
 ```bash
 ros2 param set /tractor_1/imu noise.gyro 0.05
 ros2 param set /tractor_1/imu noise.enabled true
+```
+
+### Markov, saltos com faixa e patinagem
+
+O efeito `markov` soma um erro de Gauss–Markov de primeira ordem: o primeiro passo sorteia o
+regime estacionário, de desvio `markov.<grandeza>`, e o erro decai com a constante `markov.tau`.
+Os saltos ganham uma faixa: com `jumps.min_fraction` menor que 1, a amplitude de cada salto é
+sorteada entre essa fração e 1 do valor de `jumps.<grandeza>`; com `jumps.duration_min` maior que
+0, a duração é sorteada entre esse valor e `jumps.duration`.
+
+Só a odometria tem o efeito `slip` (patinagem), com `slip.enabled` e o gatilho de sempre. Em cada
+episódio, a velocidade linear sai multiplicada por 1 + `slip.fraction`. Os episódios começam
+com taxa `slip.rate` (de 0 a 1, por segundo) e duram `slip.duration` (de 0 a 30 s); a
+`slip.fraction` vai de 0 a 1.
+
+### Perfis de degradação
+
+Um perfil é um conjunto de valores com nome, lido de `config/profiles.yaml` do pacote. As zonas
+de perda ficam fora, porque dependem do mapa. Os valores vêm do plano de implementação (seção
+5.5):
+
+| Sensor | Perfil | Valores |
+|--------|--------|---------|
+| `gnss` | `rtk_float` | `markov.position` 0,212 (σh de 0,3 m por √2) e `markov.tau` 60 |
+| `gnss` | `dgnss` | `markov.position` 0,495 (σh de 0,7 m por √2) e `markov.tau` 60 |
+| `imu` | `mems` | `noise.gyro` 0,005, `noise.accel` 0,02, `markov.gyro` 4,85e-5, tau 300 |
+| `odometry` | `field` | `scale.linear` 1,02; `slip.rate` 0,0167, duração 2 s, fração 0,1 |
+
+Os dois perfis do `gnss` ligam também `jumps`: taxa 0,0083, amplitude 2 m, `min_fraction` 0,25,
+duração de 1 a 3 s.
+
+O parâmetro `profile` (texto, vazio por padrão) escolhe o perfil por nome, no launch ou em
+execução. Escolher um perfil devolve todos os efeitos aos padrões e grava por cima os valores do
+perfil; vazio deixa só os padrões. Um nome desconhecido é recusado. O `loss.*`, a `seed` e o
+`vertical_factor` não mudam. Em execução, a aplicação leva alguns milissegundos:
+
+```bash
+ros2 param set /tractor_1/gnss profile rtk_float
 ```
