@@ -935,7 +935,11 @@ Quem consome não sabe que o sinal foi degradado.
 O núcleo (`agri_sensor_degradation/core.py`) é Python puro, sem `rclpy`: `Trigger` diz quando a
 degradação está ativa (`always`, `window` ou `zone`), `Loss` decide a perda de mensagens e
 `SensorBase` aplica a perda com um gerador de semente fixa e conta as mensagens recebidas e
-perdidas. `agri_sensor_degradation/sensors.py` traz uma classe por sensor: `GnssSensor`,
+perdidas. Além da perda, a `SensorBase` aplica oito efeitos em cadeia (`EFFECTS`: `scale`, `bias`,
+`drift`, `noise`, `jumps`, `freeze`, `rate` e `delay`), cada um com `enabled` e o próprio
+gatilho; `set_effect` liga um deles e `release` devolve as mensagens que o atraso reteve. Cada
+sensor declara as grandezas em `channels` (`Channel`) e os ganchos `read`, `write`, `idle` e
+`weights`. `agri_sensor_degradation/sensors.py` traz uma classe por sensor: `GnssSensor`,
 `ImuSensor`, `OdometrySensor`, `CameraSensor` e `TagDetectionSensor`.
 
 A camada ROS fica em `agri_sensor_degradation/node.py`. `DegradationParameters` declara os
@@ -984,4 +988,48 @@ O `rqt_reconfigure` (`ros2 run rqt_reconfigure rqt_reconfigure`) lista os mesmos
 
 ```bash
 ros2 topic echo /tractor_1/degradation/state
+```
+
+### Os efeitos nos nós
+
+Os nós `gnss`, `imu` e `odometry` declaram, além do `loss.*`, os parâmetros dos oito efeitos. A
+câmera e a detecção de tags seguem só com o `loss.*`; os efeitos na câmera ficam para a F1.4c.
+Em cada mensagem a cadeia aplica, nesta ordem, `scale`, `bias`, `drift`, `noise` e `jumps` (os
+efeitos de valor); depois `freeze` (repete a última mensagem), `rate` (limita a taxa) e `delay`
+(retém a mensagem; um timer de 10 ms no nó publica o que já pode sair). Para cada efeito `<e>`
+existem `<e>.enabled` (falso), `<e>.trigger` (`always`, `window` ou `zone`), `<e>.window_start`,
+`<e>.window_end` e `<e>.zone`, lidos como os do `loss`. Os valores têm faixa declarada e viram
+slider no `rqt_reconfigure`; a faixa sai do fundo de escala (`fs`) de cada grandeza:
+
+| Valor | Faixa |
+|-------|-------|
+| `scale.<grandeza>` | 0,5 a 1,5 (padrão 1) |
+| `bias.<grandeza>` | −`fs` a `fs` |
+| `drift.<grandeza>` | −`fs`/10 a `fs`/10, por segundo |
+| `noise.<grandeza>` | 0 a `fs` (desvio padrão) |
+| `jumps.<grandeza>` | 0 a 10·`fs` (amplitude do salto) |
+| `jumps.rate` | 0 a 1 (saltos por segundo) |
+| `jumps.duration` | 0 a 30 s (padrão 1) |
+| `rate.max_hz` | 0 a 100 |
+| `delay.seconds` | 0 a 2 |
+
+As grandezas e os fundos de escala de cada sensor:
+
+| Sensor | Grandeza | `fs` |
+|--------|----------|------|
+| `gnss` | `position` (leste, norte, altura, em m) | 5 |
+| `imu` | `gyro` (rad/s) | 0,1 |
+| `imu` | `accel` (m/s²) | 1 |
+| `odometry` | `linear` (m/s) | 1 |
+| `odometry` | `angular` (rad/s) | 0,5 |
+
+No `gnss` há ainda `vertical_factor` (de 1 a 5, padrão 2), o peso da altura nos efeitos aditivos.
+Um valor fora da faixa ou um `*.trigger` desconhecido é recusado, e qualquer mudança em execução
+reaplica todos os parâmetros ao sensor. A covariância acompanha o ruído: com `noise` ativo, a
+mensagem sai com a covariância diagonal σ² de cada grandeza. Por exemplo, para ligar um ruído de
+0,05 rad/s no giroscópio:
+
+```bash
+ros2 param set /tractor_1/imu noise.gyro 0.05
+ros2 param set /tractor_1/imu noise.enabled true
 ```
