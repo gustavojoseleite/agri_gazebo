@@ -27,6 +27,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_clock test/test_clock.py)
   ament_add_pytest_test(test_distortion_fast test/test_distortion_fast.py)
   ament_add_pytest_test(test_camera_loss test/test_camera_loss.py)
+  ament_add_pytest_test(test_camera_effects_node test/test_camera_effects_node.py)
 endif()
 
 ament_package()

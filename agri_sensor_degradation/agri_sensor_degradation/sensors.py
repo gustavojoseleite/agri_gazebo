@@ -6,11 +6,14 @@ outros nós consomem.
 import copy
 import math
 
+import cv2
 import numpy as np
 from apriltag_msgs.msg import AprilTagDetectionArray
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image, Imu, NavSatFix
 
+from agri_sensor_degradation import image as image_effects
+from agri_sensor_degradation.apriltag import Detector
 from agri_sensor_degradation.core import Channel, SensorBase
 
 EARTH_RADIUS = 6378137.0
@@ -174,6 +177,61 @@ class CameraSensor(SensorBase):
     msg_type = Image
     input_topic = 'camera_front/image_ideal'
     output_topic = 'camera_front/image_raw'
+    extra_effects = {'occlusion': {'fraction': 0.0},
+                     'dust': {'contrast': 0.0, 'blur': 0.0},
+                     'brightness': {'gain': 1.0, 'offset': 0.0}}
+    # Faixas dos parâmetros próprios, para o nó validar.
+    extra_ranges = {('occlusion', 'fraction'): (0, 1), ('dust', 'contrast'): (0, 1),
+                    ('dust', 'blur'): (0, 10), ('brightness', 'gain'): (0, 3),
+                    ('brightness', 'offset'): (-128, 128)}
+
+    def __init__(self, seed=0):
+        super().__init__(seed)
+        self._detector = None
+        self._edge = None
+
+    def idle(self, msg, t):
+        """Sem efeito ativo, a oclusão termina e a borda será sorteada de novo."""
+        self._edge = None
+
+    def read(self, msg):
+        """A imagem não tem grandezas numéricas; os efeitos agem em `write`."""
+        return {}
+
+    def write(self, msg, values, sigmas, t):
+        """Aplica oclusão, poeira e brilho, nessa ordem, numa mensagem nova."""
+        channels = 1 if msg.encoding == 'mono8' else 3
+        rows = np.frombuffer(bytes(msg.data), np.uint8).reshape(msg.height, msg.step)
+        image = rows[:, :msg.width * channels]
+        image = image.reshape((msg.height, msg.width) if channels == 1
+                              else (msg.height, msg.width, 3)).copy()
+        active = self._effect_active
+        if active['occlusion']:
+            if self._edge is None:
+                self._edge = int(self.rng.integers(0, 4))
+            if self._detector is None:
+                self._detector = Detector('36h11')
+            if channels == 1:
+                gray = image
+            else:
+                code = cv2.COLOR_BGR2GRAY if msg.encoding == 'bgr8' else cv2.COLOR_RGB2GRAY
+                gray = cv2.cvtColor(image, code)
+            fraction = self.effects['occlusion'].values['fraction']
+            for _, corners in self._detector.detect(gray):
+                image = image_effects.occlude(image, corners, fraction, self._edge)
+        else:
+            self._edge = None
+        if active['dust']:
+            dust = self.effects['dust'].values
+            image = image_effects.dust(image, dust['contrast'], dust['blur'])
+        if active['brightness']:
+            light = self.effects['brightness'].values
+            image = image_effects.brightness(image, light['gain'], light['offset'])
+        out = copy.deepcopy(msg)
+        rows = rows.copy()
+        rows[:, :msg.width * channels] = image.reshape(msg.height, msg.width * channels)
+        out.data = rows.tobytes()
+        return out
 
 
 class TagDetectionSensor(SensorBase):

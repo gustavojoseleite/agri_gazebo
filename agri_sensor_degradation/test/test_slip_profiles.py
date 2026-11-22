@@ -62,7 +62,8 @@ def test_profile_names():
     assert profiles.names('gnss') == ['dgnss', 'rtk_float']
     assert profiles.names('imu') == ['mems']
     assert profiles.names('odometry') == ['field']
-    assert profiles.names('camera') == []
+    assert profiles.names('camera') == ['dust', 'glare', 'occlusion_25', 'occlusion_50',
+                                        'occlusion_75']
 
 
 def test_rtk_float_and_dgnss():

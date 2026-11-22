@@ -42,3 +42,23 @@ odometry:
     slip.rate: 0.016667
     slip.duration: 2.0
     slip.fraction: 0.1
+camera:
+  # Barro cobrindo 25 %, 50 % e 75 % da área de cada tag, a partir de um lado sorteado.
+  occlusion_25:
+    occlusion.enabled: true
+    occlusion.fraction: 0.25
+  occlusion_50:
+    occlusion.enabled: true
+    occlusion.fraction: 0.5
+  occlusion_75:
+    occlusion.enabled: true
+    occlusion.fraction: 0.75
+  # Poeira na lente: perde metade do contraste e desfoca com sigma de 2 px.
+  dust:
+    dust.enabled: true
+    dust.contrast: 0.5
+    dust.blur: 2.0
+  # Reflexo do sol: ganho de 1,6 no brilho.
+  glare:
+    brightness.enabled: true
+    brightness.gain: 1.6
