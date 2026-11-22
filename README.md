@@ -967,8 +967,8 @@ recebem `use_sim_time` e o `ground_truth_topic` do veículo, `/ground_truth/<nom
 gatilho `zone` usa para saber onde ele está.
 
 A câmera segue o mesmo princípio. O nó `camera_distortion` lê `camera_front/image_ideal`, aplica a
-distorção de Brown e publica `camera_front/image_raw`. Ele também recebe os parâmetros `loss.*` e o
-`ground_truth_topic`, e uma imagem perdida não é publicada.
+distorção de Brown e publica `camera_front/image_raw`. Ele também recebe os parâmetros `loss.*`, os
+efeitos da câmera e o `ground_truth_topic`, e uma imagem perdida não é publicada.
 
 ### Ligando a perda em execução
 
@@ -993,7 +993,8 @@ ros2 topic echo /tractor_1/degradation/state
 ### Os efeitos nos nós
 
 Os nós `gnss`, `imu` e `odometry` declaram, além do `loss.*`, os parâmetros dos nove efeitos. A
-câmera e a detecção de tags seguem só com o `loss.*`; os efeitos na câmera ficam para a F1.4c.
+câmera declara só os efeitos próprios dela (ver "Os efeitos da câmera") e a detecção de tags segue
+só com o `loss.*`.
 Em cada mensagem a cadeia aplica, nesta ordem, `scale`, `bias`, `drift`, `markov`, `noise` e `jumps`
 (os efeitos de valor); depois `freeze` (repete a última mensagem), `rate` (limita a taxa) e `delay`
 (retém a mensagem; um timer de 10 ms no nó publica o que já pode sair). Para cada efeito `<e>`
@@ -1075,3 +1076,31 @@ perfil; vazio deixa só os padrões. Um nome desconhecido é recusado. O `loss.*
 ```bash
 ros2 param set /tractor_1/gnss profile rtk_float
 ```
+
+### Os efeitos da câmera
+
+O `camera_distortion` declara, além do `loss.*`, só os efeitos próprios da `CameraSensor`; `noise`,
+`scale` e os outros gerais não existem nele, porque a imagem não tem grandezas numéricas. Cada
+efeito tem `<e>.enabled`, `<e>.trigger`, `<e>.window_start`, `<e>.window_end` e `<e>.zone`, como
+os dos outros sensores. Em cada imagem a ordem é distorção (a de Brown, que o nó já fazia),
+oclusão, poeira e brilho:
+
+| Valor | Faixa |
+|-------|-------|
+| `occlusion.fraction` | 0 a 1, parte da área da tag coberta de barro |
+| `dust.contrast` | 0 a 1, perda de contraste |
+| `dust.blur` | 0 a 10 px, sigma do desfoque |
+| `brightness.gain` | 0 a 3 (padrão 1) |
+| `brightness.offset` | −128 a 128 |
+
+A tag é detectada na própria imagem, com o detector do AprilTag (família `36h11`), e a oclusão
+cobre `occlusion.fraction` da área de cada tag a partir de uma borda sorteada. Os perfis da câmera
+saem do mesmo `profiles.yaml`: `occlusion_25`, `occlusion_50`, `occlusion_75`, `dust` e `glare`
+(ganho de 1,6). O `profile` escolhe um deles; vazio devolve a imagem sem efeito, e um nome de outro
+sensor é recusado. O nó de cada câmera se chama `distortion_<câmera>`:
+
+```bash
+ros2 param set /tractor_1/distortion_camera_front profile occlusion_50
+```
+
+A perda na detecção das tags, que age no `detections` em vez de na imagem, fica para a F4.1.

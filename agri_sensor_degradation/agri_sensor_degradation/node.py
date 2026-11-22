@@ -71,7 +71,10 @@ class DegradationParameters:
         node.declare_parameter('loss.zone', Parameter.Type.DOUBLE_ARRAY, ParameterDescriptor(
             description='Polígono da zona: x0, y0, x1, y1, ...'))
         node.declare_parameter('ground_truth_topic', '')
-        if sensor.channels:
+        # Os efeitos gerais exigem grandezas; os próprios do sensor valem sempre.
+        self._effects = {name: effect for name, effect in sensor.effects.items()
+                         if sensor.channels or name in sensor.extra_effects}
+        if self._effects:
             self._declare_effects()
             if hasattr(sensor, 'vertical_factor'):
                 node.declare_parameter('vertical_factor', float(sensor.vertical_factor),
@@ -84,7 +87,7 @@ class DegradationParameters:
         node.add_post_set_parameters_callback(self._on_changed)
         self._refresh()
         node.create_timer(1.0, self.publish_state)
-        if sensor.channels and self._value('profile'):
+        if self._effects and self._value('profile'):
             self._apply_profile()
 
     @staticmethod
@@ -96,7 +99,7 @@ class DegradationParameters:
     def _declare_effects(self):
         """Declara, para cada efeito, o gatilho e os valores, com a faixa de cada um."""
         node = self.node
-        for name, effect in self.sensor.effects.items():
+        for name, effect in self._effects.items():
             self._defaults[f'{name}.enabled'] = False
             node.declare_parameter(f'{name}.enabled', False)
             node.declare_parameter(f'{name}.trigger', 'always')
@@ -166,7 +169,7 @@ class DegradationParameters:
         loss.enabled = bool(self._value('loss.enabled'))
         loss.fraction = float(self._value('loss.fraction'))
         loss.trigger = self._trigger('loss')
-        if self.sensor.channels:
+        if self._effects:
             self._refresh_effects()
         seed = int(self._value('seed'))
         if seed != self.sensor.seed:
@@ -184,7 +187,7 @@ class DegradationParameters:
 
     def _refresh_effects(self):
         """Copia os parâmetros dos efeitos para o sensor."""
-        for name, effect in self.sensor.effects.items():
+        for name, effect in self._effects.items():
             effect.enabled = bool(self._value(f'{name}.enabled'))
             effect.trigger = self._trigger(name)
             for key in effect.values:
