@@ -12,8 +12,34 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.qos import qos_profile_sensor_data
 
-from agri_sensor_degradation.core import MODES, Trigger
+from agri_sensor_degradation.core import EFFECTS, MODES, SCALAR_VALUES, Trigger
 from agri_sensor_degradation.sensors import GnssSensor, ImuSensor, OdometrySensor
+
+
+# Faixa dos valores que não são por grandeza.
+SCALAR_RANGES = {
+    ('jumps', 'rate'): (0.0, 1.0),
+    ('jumps', 'duration'): (0.0, 30.0),
+    ('rate', 'max_hz'): (0.0, 100.0),
+    ('delay', 'seconds'): (0.0, 2.0),
+}
+
+
+def _channel_range(effect, full_scale):
+    """Faixa do valor de um efeito para uma grandeza, a partir do fundo de escala."""
+    return {
+        'scale': (0.5, 1.5),
+        'bias': (-full_scale, full_scale),
+        'drift': (-full_scale / 10.0, full_scale / 10.0),
+        'noise': (0.0, full_scale),
+        'jumps': (0.0, 10.0 * full_scale),
+    }[effect]
+
+
+def _polygon(flat):
+    """Converte a lista plana `x0, y0, x1, y1, ...` em pontos; com menos de três, zona vazia."""
+    zone = [(flat[i], flat[i + 1]) for i in range(0, len(flat) - 1, 2)]
+    return zone if len(zone) >= 3 else []
 
 
 class DegradationParameters:
@@ -38,6 +64,11 @@ class DegradationParameters:
         node.declare_parameter('loss.zone', Parameter.Type.DOUBLE_ARRAY, ParameterDescriptor(
             description='Polígono da zona: x0, y0, x1, y1, ...'))
         node.declare_parameter('ground_truth_topic', '')
+        if sensor.channels:
+            self._declare_effects()
+            if hasattr(sensor, 'vertical_factor'):
+                node.declare_parameter('vertical_factor', float(sensor.vertical_factor),
+                                       self._range(1.0, 5.0, 'Peso da altura nos efeitos.'))
 
         self._state_pub = node.create_publisher(DiagnosticArray, 'degradation/state', 10)
         node.add_on_set_parameters_callback(self._validate)
@@ -45,13 +76,39 @@ class DegradationParameters:
         self._refresh()
         node.create_timer(1.0, self.publish_state)
 
+    @staticmethod
+    def _range(low, high, description=''):
+        """Descritor de um valor real com faixa, que vira slider no `rqt_reconfigure`."""
+        return ParameterDescriptor(description=description, floating_point_range=[
+            FloatingPointRange(from_value=float(low), to_value=float(high), step=0.0)])
+
+    def _declare_effects(self):
+        """Declara, para cada efeito, o gatilho e os valores, com a faixa de cada um."""
+        node = self.node
+        for name in EFFECTS:
+            effect = self.sensor.effects[name]
+            node.declare_parameter(f'{name}.enabled', False)
+            node.declare_parameter(f'{name}.trigger', 'always')
+            node.declare_parameter(f'{name}.window_start', 0.0)
+            node.declare_parameter(f'{name}.window_end', 0.0)
+            node.declare_parameter(f'{name}.zone', Parameter.Type.DOUBLE_ARRAY, ParameterDescriptor(
+                description='Polígono da zona: x0, y0, x1, y1, ...'))
+            for key, default in effect.values.items():
+                if key in SCALAR_VALUES.get(name, {}):
+                    low, high = SCALAR_RANGES[(name, key)]
+                else:
+                    full_scale = self.sensor.channels[key].full_scale
+                    low, high = _channel_range(name, full_scale)
+                node.declare_parameter(f'{name}.{key}', float(default),
+                                       self._range(low, high))
+
     def _value(self, name):
         return self.node.get_parameter(name).value
 
     def _validate(self, parameters):
         """Recusa fração fora de [0, 1] e gatilho desconhecido."""
         for parameter in parameters:
-            if parameter.name == 'loss.trigger' and parameter.value not in MODES:
+            if parameter.name.endswith('.trigger') and parameter.value not in MODES:
                 return SetParametersResult(
                     successful=False, reason=f'gatilho desconhecido: {parameter.value!r}')
             if parameter.name == 'loss.fraction' and not 0.0 <= parameter.value <= 1.0:
@@ -72,18 +129,33 @@ class DegradationParameters:
         loss = self.sensor.loss
         loss.enabled = bool(self._value('loss.enabled'))
         loss.fraction = float(self._value('loss.fraction'))
-        # Sem valor, o parâmetro da zona fica não inicializado: vale como zona vazia.
-        empty = Parameter('loss.zone', Parameter.Type.DOUBLE_ARRAY, [])
-        flat = list(self.node.get_parameter_or('loss.zone', empty).value)
-        zone = [(flat[i], flat[i + 1]) for i in range(0, len(flat) - 1, 2)]
-        if len(zone) < 3:
-            zone = []
-        window = (float(self._value('loss.window_start')), float(self._value('loss.window_end')))
-        loss.trigger = Trigger(self._value('loss.trigger'), window=window, zone=zone)
+        loss.trigger = self._trigger('loss')
+        if self.sensor.channels:
+            self._refresh_effects()
         seed = int(self._value('seed'))
         if seed != self.sensor.seed:
             self.sensor.reseed(seed)
         self._subscribe_truth(self._value('ground_truth_topic'))
+
+    def _trigger(self, prefix):
+        """Monta o gatilho de `<prefix>.trigger`, `.window_*` e `.zone`."""
+        # Sem valor, o parâmetro da zona fica não inicializado: vale como zona vazia.
+        empty = Parameter(f'{prefix}.zone', Parameter.Type.DOUBLE_ARRAY, [])
+        flat = list(self.node.get_parameter_or(f'{prefix}.zone', empty).value)
+        window = (float(self._value(f'{prefix}.window_start')),
+                  float(self._value(f'{prefix}.window_end')))
+        return Trigger(self._value(f'{prefix}.trigger'), window=window, zone=_polygon(flat))
+
+    def _refresh_effects(self):
+        """Copia os parâmetros dos efeitos para o sensor."""
+        for name in EFFECTS:
+            effect = self.sensor.effects[name]
+            effect.enabled = bool(self._value(f'{name}.enabled'))
+            effect.trigger = self._trigger(name)
+            for key in effect.values:
+                effect.values[key] = float(self._value(f'{name}.{key}'))
+        if hasattr(self.sensor, 'vertical_factor'):
+            self.sensor.vertical_factor = float(self._value('vertical_factor'))
 
     def _subscribe_truth(self, topic):
         """Assina a pose real do veículo, se houver tópico."""
@@ -126,6 +198,13 @@ class SensorNode(Node):
         self.degradation = DegradationParameters(self, sensor)
         self.create_subscription(sensor.msg_type, sensor.input_topic, self._on_message,
                                  qos_profile_sensor_data)
+        self.create_timer(0.01, self._release)
+
+    def _release(self):
+        """Publica as mensagens que o atraso reteve e cuja hora chegou."""
+        now = self.get_clock().now().nanoseconds * 1e-9
+        for msg in self.sensor.release(now):
+            self._publisher.publish(msg)
 
     def _on_message(self, msg):
         result = self.degradation.apply(msg)
