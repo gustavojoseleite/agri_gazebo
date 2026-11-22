@@ -51,8 +51,8 @@ def test_three_nodes_in_one_process(process):
 
 
 @pytest.mark.parametrize('kind, ideal, normal', [
-    (Imu, '/v/imu/data_ideal', '/v/imu/data'),
-    (Odometry, '/v/odom_ideal', '/v/odom'),
+    (Imu, '/v/_sim/imu/data', '/v/imu/data'),
+    (Odometry, '/v/_sim/odom', '/v/odom'),
 ])
 def test_passes_the_signal(process, kind, ideal, normal):
     received = []

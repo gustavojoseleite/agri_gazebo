@@ -147,7 +147,7 @@ def test_ground_truth_pose_publisher():
 def test_bridge_entries():
     entries = yaml.safe_load((PACKAGE / 'config' / 'bridge.yaml').read_text())
     by_ros = {e['ros_topic_name']: e for e in entries}
-    assert by_ros['camera_front/image_ideal']['gz_topic_name'] == \
+    assert by_ros['_sim/camera_front/image']['gz_topic_name'] == \
         '/model/{name}/camera_front/image'
     assert 'camera_front/image_raw' not in by_ros
     assert by_ros['camera_front/camera_info']['gz_type_name'] == 'gz.msgs.CameraInfo'

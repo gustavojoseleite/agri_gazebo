@@ -30,7 +30,7 @@ def _diagonal(sigma):
 class GnssSensor(SensorBase):
     name = 'gnss'
     msg_type = NavSatFix
-    input_topic = 'gnss/fix_ideal'
+    input_topic = '_sim/gnss/fix'
     output_topic = 'gnss/fix'
     channels = {'position': Channel(3, 5.0)}
 
@@ -76,7 +76,7 @@ class GnssSensor(SensorBase):
 class ImuSensor(SensorBase):
     name = 'imu'
     msg_type = Imu
-    input_topic = 'imu/data_ideal'
+    input_topic = '_sim/imu/data'
     output_topic = 'imu/data'
     channels = {'gyro': Channel(3, 0.1), 'accel': Channel(3, 1.0)}
 
@@ -101,7 +101,7 @@ class ImuSensor(SensorBase):
 class OdometrySensor(SensorBase):
     name = 'odometry'
     msg_type = Odometry
-    input_topic = 'odom_ideal'
+    input_topic = '_sim/odom'
     output_topic = 'odom'
     channels = {'linear': Channel(1, 1.0), 'angular': Channel(1, 0.5)}
     extra_effects = {'slip': {'rate': 0.0, 'duration': 2.0, 'fraction': 0.0}}
@@ -175,7 +175,7 @@ class OdometrySensor(SensorBase):
 class CameraSensor(SensorBase):
     name = 'camera'
     msg_type = Image
-    input_topic = 'camera_front/image_ideal'
+    input_topic = '_sim/camera_front/image'
     output_topic = 'camera_front/image_raw'
     extra_effects = {'occlusion': {'fraction': 0.0},
                      'dust': {'contrast': 0.0, 'blur': 0.0},
@@ -237,5 +237,5 @@ class CameraSensor(SensorBase):
 class TagDetectionSensor(SensorBase):
     name = 'tag_detection'
     msg_type = AprilTagDetectionArray
-    input_topic = 'detections_ideal'
+    input_topic = '_sim/detections'
     output_topic = 'detections'

@@ -116,11 +116,11 @@ def test_state():
 
 
 @pytest.mark.parametrize('cls, name, msg_type, ideal, normal', [
-    (GnssSensor, 'gnss', NavSatFix, 'gnss/fix_ideal', 'gnss/fix'),
-    (ImuSensor, 'imu', Imu, 'imu/data_ideal', 'imu/data'),
-    (OdometrySensor, 'odometry', Odometry, 'odom_ideal', 'odom'),
-    (CameraSensor, 'camera', Image, 'camera_front/image_ideal', 'camera_front/image_raw'),
-    (TagDetectionSensor, 'tag_detection', AprilTagDetectionArray, 'detections_ideal',
+    (GnssSensor, 'gnss', NavSatFix, '_sim/gnss/fix', 'gnss/fix'),
+    (ImuSensor, 'imu', Imu, '_sim/imu/data', 'imu/data'),
+    (OdometrySensor, 'odometry', Odometry, '_sim/odom', 'odom'),
+    (CameraSensor, 'camera', Image, '_sim/camera_front/image', 'camera_front/image_raw'),
+    (TagDetectionSensor, 'tag_detection', AprilTagDetectionArray, '_sim/detections',
      'detections'),
 ])
 def test_sensor_classes(cls, name, msg_type, ideal, normal):

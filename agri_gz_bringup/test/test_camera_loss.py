@@ -30,7 +30,7 @@ def rig():
     probe.create_subscription(Image, 'camera_front/image_raw', received.append, 10)
     probe.create_subscription(DiagnosticArray, 'degradation/state', states.append, 10)
     info = probe.create_publisher(CameraInfo, 'camera_front/camera_info', 10)
-    ideal = probe.create_publisher(Image, 'camera_front/image_ideal', 10)
+    ideal = probe.create_publisher(Image, '_sim/camera_front/image', 10)
     for node in (camera, probe):
         executor.add_node(node)
 

@@ -20,7 +20,7 @@ BRIDGE = """
   ros_type_name: "sensor_msgs/msg/Imu"
   gz_type_name: "gz.msgs.IMU"
   direction: GZ_TO_ROS
-- ros_topic_name: "camera_front/image_ideal"
+- ros_topic_name: "_sim/camera_front/image"
   gz_topic_name: "/model/{name}/camera_front/image"
   ros_type_name: "sensor_msgs/msg/Image"
   gz_type_name: "gz.msgs.Image"
@@ -61,17 +61,17 @@ def test_bridge_dual_camera():
     entries = bridge_config(BRIDGE, 'tractor_1', 'dual')
     ros = sorted(e['ros_topic_name'] for e in entries)
     assert ros == sorted(['imu/data', '/ground_truth/tractor_1/pose',
-                          'camera_front_left/image_ideal', 'camera_front_left/camera_info',
-                          'camera_front_right/image_ideal', 'camera_front_right/camera_info'])
+                          '_sim/camera_front_left/image', 'camera_front_left/camera_info',
+                          '_sim/camera_front_right/image', 'camera_front_right/camera_info'])
     gz = {e['ros_topic_name']: e['gz_topic_name'] for e in entries}
-    assert gz['camera_front_left/image_ideal'] == '/model/tractor_1/camera_front_left/image'
+    assert gz['_sim/camera_front_left/image'] == '/model/tractor_1/camera_front_left/image'
     assert gz['camera_front_right/camera_info'] == \
         '/model/tractor_1/camera_front_right/camera_info'
     assert not any('{name}' in str(e) for e in entries)
 
 
 def test_bridge_without_camera_entries_is_unchanged_by_the_mount():
-    text = BRIDGE.split('- ros_topic_name: "camera_front/image_ideal"')[0]
+    text = BRIDGE.split('- ros_topic_name: "_sim/camera_front/image"')[0]
     assert bridge_config(text, 'pickup', 'dual') == bridge_config(text, 'pickup', 'single')
 
 
