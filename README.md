@@ -922,3 +922,66 @@ então `<stddev>1.0</stddev>` não é um metro de dispersão, mas um grau — 11
 recebe metros e divide; o sintoma, se ele for contornado, é um fix que parece plausível e passeia
 por outros estados. Um mundo também precisa de `<spherical_coordinates>`, ou não há datum contra o
 qual converter: todos estes mundos levam o mesmo, Bebedouro/SP.
+
+## Degradação dos sensores
+
+O `agri_sensor_degradation` degrada o sinal dos sensores simulados (GNSS, IMU, odometria, câmera e
+detecção de tags). O princípio é que **a degradação fica no nó que gera o sinal**: o simulador
+publica o tópico ideal (`gnss/fix_ideal`, `imu/data_ideal`, `odom_ideal`,
+`camera_front/image_ideal`, `detections_ideal`) e o nó de degradação publica o normal (`gnss/fix`,
+`imu/data`, `odom`, `camera_front/image_raw`, `detections`), que é o que os outros nós consomem.
+Quem consome não sabe que o sinal foi degradado.
+
+O núcleo (`agri_sensor_degradation/core.py`) é Python puro, sem `rclpy`: `Trigger` diz quando a
+degradação está ativa (`always`, `window` ou `zone`), `Loss` decide a perda de mensagens e
+`SensorBase` aplica a perda com um gerador de semente fixa e conta as mensagens recebidas e
+perdidas. `agri_sensor_degradation/sensors.py` traz uma classe por sensor: `GnssSensor`,
+`ImuSensor`, `OdometrySensor`, `CameraSensor` e `TagDetectionSensor`.
+
+A camada ROS fica em `agri_sensor_degradation/node.py`. `DegradationParameters` declara os
+parâmetros de um nó: `seed`, `loss.enabled`, `loss.fraction` (de 0 a 1, passo 0,01, que vira slider
+no `rqt_reconfigure`), `loss.trigger` (`always`, `window` ou `zone`), `loss.window_start`,
+`loss.window_end`, `loss.zone` (lista plana `x0, y0, x1, y1, ...`; com menos de três pontos a zona
+é vazia) e `ground_truth_topic` (a `geometry_msgs/PoseStamped` real do veículo, usada no gatilho
+`zone`). Mudanças em execução valem na hora, e uma semente nova reinicia a sequência. O instante de
+cada mensagem é o carimbo dela, e o estado sai em `degradation/state` (`DiagnosticArray`), a 1 Hz
+e a cada mudança. `SensorNode` é o nó de um sensor, e o executável `sensors` sobe os nós `gnss`,
+`imu` e `odometry` num só processo:
+
+```bash
+ros2 run agri_sensor_degradation sensors --ros-args -r __ns:=/<veículo>
+```
+
+### A cadeia de sensores no comboio
+
+Em cada veículo, `vehicle_nodes` (em `agri_gz_bringup/vehicles.py`) monta a cadeia
+Gazebo → ponte → nó do sensor. O `bridge.yaml` de cada `<veículo>_gz` entrega o GNSS em
+`gnss/fix_ideal` e a IMU em `imu/data_ideal`; os controladores publicam a odometria em
+`odom_ideal` (a opção `odom_topic` do `vehicle_control`). O executável `sensors`, que sobe no
+namespace do veículo, lê esses três tópicos e publica `gnss/fix`, `imu/data` e `odom`. Os nós
+recebem `use_sim_time` e o `ground_truth_topic` do veículo, `/ground_truth/<nome>/pose`, que o
+gatilho `zone` usa para saber onde ele está.
+
+A câmera segue o mesmo princípio. O nó `camera_distortion` lê `camera_front/image_ideal`, aplica a
+distorção de Brown e publica `camera_front/image_raw`. Ele também recebe os parâmetros `loss.*` e o
+`ground_truth_topic`, e uma imagem perdida não é publicada.
+
+### Ligando a perda em execução
+
+Os parâmetros `loss.*` valem na hora, em cada nó (`gnss`, `imu`, `odometry` e
+`distortion_camera_front`, dentro do namespace do veículo):
+
+```bash
+ros2 param set /tractor_1/gnss loss.enabled true
+ros2 param set /tractor_1/gnss loss.fraction 0.5
+ros2 param set /tractor_1/distortion_camera_front loss.trigger window
+ros2 param set /tractor_1/distortion_camera_front loss.window_end 30.0
+```
+
+O `rqt_reconfigure` (`ros2 run rqt_reconfigure rqt_reconfigure`) lista os mesmos parâmetros, e
+`loss.fraction` aparece como slider de 0 a 1. O estado de cada nó sai em `degradation/state`
+(`DiagnosticArray`), a 1 Hz e a cada mudança, com as mensagens recebidas e as perdidas:
+
+```bash
+ros2 topic echo /tractor_1/degradation/state
+```

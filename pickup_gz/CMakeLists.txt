@@ -11,6 +11,7 @@ install(
 if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_model test/test_model.py)
+  ament_add_pytest_test(test_bridge_ideal test/test_bridge_ideal.py)
 endif()
 
 ament_package()
