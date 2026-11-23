@@ -26,6 +26,8 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_sim_degradation test/test_sim_degradation.py TIMEOUT 600
     ENV FASTRTPS_DEFAULT_PROFILES_FILE=${agri_gz_bringup_DIR}/../config/fastdds_shm.xml)
   set_tests_properties(test_sim_degradation PROPERTIES LABELS simulation)
+  ament_add_pytest_test(test_sim_physics test/test_sim_physics.py TIMEOUT 1200)
+  set_tests_properties(test_sim_physics PROPERTIES LABELS simulation)
 endif()
 
 ament_package()

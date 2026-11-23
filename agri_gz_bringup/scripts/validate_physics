@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""Mede a física dos veículos a 40 km/h e imprime uma tabela em Markdown.
+
+    ros2 run agri_gz_bringup validate_physics
+
+A matriz: reta e frenagem, curvas de 6, 12, 24 e 30 m no limite (a_lat = 1,0 m/s²) e de 30 m a
+11,1 m/s, no `autonomous_tractor` e na `pickup`, mais o relevo do `citrus_farm` no trator.
+Cada vez que um veículo é criado leva alguns minutos.
+"""
+from agri_gz_bringup.maneuvers import Session
+
+SPEED = 11.1
+CURVES = [(6.0, 2.45), (12.0, 3.46), (24.0, 4.90), (30.0, 5.48), (30.0, 11.1)]
+# Desaceleração de projeto de cada veículo, em m/s².
+BRAKING = {'autonomous_tractor': 3.0, 'pickup': 6.0}
+
+
+def num(value, digits=1):
+    """Número com vírgula decimal."""
+    return f'{value:.{digits}f}'.replace('.', ',')
+
+
+def verdict(ok):
+    return 'sim' if ok else 'não'
+
+
+def straight_rows(robot, run, decel, tolerance):
+    ideal = run['brake_from'] ** 2 / (2 * decel)
+    return [
+        (robot, 'reta a 11,1 m/s', f"v de {num(run['v_min'], 2)} a {num(run['v_max'], 2)} m/s",
+         verdict(run['v_min'] >= 11.0 and run['v_max'] <= 11.2)),
+        (robot, f'frenagem a {num(decel)} m/s²',
+         f"{num(run['stop_distance'])} m em {num(run['stop_time'])} s (ideal {num(ideal)} m)",
+         verdict(abs(run['stop_distance'] - ideal) <= tolerance * ideal)),
+    ]
+
+
+def curve_row(robot, radius, speed, run):
+    ok = (abs(run['radius'] / radius - 1) <= 0.03 and run['deviation'] < 0.2
+          and run['max_roll'] < 5.0)
+    return (robot, f'curva de {num(radius, 0)} m a {num(speed, 2)} m/s',
+            f"raio {num(run['radius'], 2)} m, desvio {num(run['deviation'], 2)} m, "
+            f"rolagem {num(run['max_roll'])}°", verdict(ok))
+
+
+def relief_rows(robot, run, decel):
+    ideal = run['brake_from'] ** 2 / (2 * decel)
+    rise = run['z_max'] - run['z_min']
+    name = 'relevo do citrus_farm'
+    return [
+        (robot, f'{name}, desnível', f'{num(rise)} m', verdict(rise > 5.0)),
+        (robot, f'{name}, velocidade',
+         f"v de {num(run['v_min'], 2)} a {num(run['v_max'], 2)} m/s",
+         verdict(run['v_min'] >= 10.8 and run['v_max'] <= 11.4)),
+        (robot, f'{name}, inclinação',
+         f"rolagem {num(run['max_roll'])}°, arfagem {num(run['max_pitch'])}°",
+         verdict(run['max_roll'] < 20.0 and run['max_pitch'] < 20.0)),
+        (robot, f'{name}, frenagem', f"{num(run['stop_distance'])} m (ideal {num(ideal)} m)",
+         verdict(abs(run['stop_distance'] - ideal) <= 0.15 * ideal)),
+    ]
+
+
+def main():
+    rows = []
+    for robot, decel in BRAKING.items():
+        with Session(robot, world='empty.sdf') as session:
+            rows += straight_rows(robot, session.straight(SPEED, 8.0), decel, 0.1)
+            for radius, speed in CURVES:
+                rows.append(curve_row(robot, radius, speed, session.circle(radius, speed)))
+    with Session('autonomous_tractor', world='citrus_farm.sdf') as session:
+        run = session.straight(SPEED, 25.0)
+    rows += relief_rows('autonomous_tractor', run, BRAKING['autonomous_tractor'])
+    print('| Veículo | Manobra | Medido | Passou |')
+    print('|---|---|---|---|')
+    for row in rows:
+        print('| ' + ' | '.join(row) + ' |')
+
+
+if __name__ == '__main__':
+    main()

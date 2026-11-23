@@ -14,8 +14,10 @@ install(
 # em vez de empurrar um diretório de `share/` para o `sys.path`.
 ament_python_install_package(${PROJECT_NAME})
 
-# Nó que aplica a distorção de Brown à imagem da câmera e o medidor do fator de tempo real.
+# Nó que aplica a distorção de Brown à imagem da câmera, o medidor do fator de tempo real e o
+# `validate_physics`, que mede a física dos veículos.
 install(PROGRAMS scripts/camera_distortion scripts/measure_rtf.py
+        scripts/validate_physics
         DESTINATION lib/${PROJECT_NAME})
 
 if(BUILD_TESTING)
@@ -28,6 +30,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_distortion_fast test/test_distortion_fast.py)
   ament_add_pytest_test(test_camera_loss test/test_camera_loss.py)
   ament_add_pytest_test(test_camera_effects_node test/test_camera_effects_node.py)
+  ament_add_pytest_test(test_maneuvers test/test_maneuvers.py)
 endif()
 
 ament_package()
