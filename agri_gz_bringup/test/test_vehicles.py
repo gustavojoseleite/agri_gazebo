@@ -88,5 +88,10 @@ def _convoy_arguments():
 def test_convoy_arguments():
     names = set(_convoy_arguments())
     assert {'tag_family', 'tag_size', 'camera_mount', 'sensor_profile'} <= names
+
+
+def test_convoy_has_the_ground_height():
+    # O relevo varia ao longo de X: a fila nasce sobre o chão do ponto de partida.
+    assert _convoy_arguments()['z'] is not None
     assert 'followers_sensors' not in names
     assert 'followers_camera' not in names
