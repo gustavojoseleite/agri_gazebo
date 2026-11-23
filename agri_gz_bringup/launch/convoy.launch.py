@@ -51,7 +51,8 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-from agri_gz_bringup.vehicles import convoy_line, egl_actions, gz_args, vehicle_nodes
+from agri_gz_bringup.vehicles import (convoy_line, egl_actions, gz_args, spawn_height,
+                                      vehicle_nodes)
 
 
 def shared_memory_actions():
@@ -73,6 +74,9 @@ def launch_setup(context, *args, **kwargs):
     gui = arg("gui").lower() == "true"
     spacing = float(arg("spacing"))
     x0, y0, yaw = float(arg("x")), float(arg("y")), float(arg("yaw"))
+    # A altura do chão sob a fila: o relevo dos mundos da fazenda varia ao longo de X, e quem
+    # nasce na altura de criação do veículo num ponto alto fica preso dentro do terreno.
+    z0 = float(arg("z"))
     tag_family, tag_size = arg("tag_family"), float(arg("tag_size"))
     camera_mount, sensor_profile = arg("camera_mount"), arg("sensor_profile")
 
@@ -113,7 +117,8 @@ def launch_setup(context, *args, **kwargs):
     for n, vehicle in enumerate(line):
         nodes += vehicle_nodes(
             vehicle["robot"], vehicle["name"], f"/{vehicle['name']}",
-            (x0 + back_x * spacing * n, y0 + back_y * spacing * n, None, yaw),
+            (x0 + back_x * spacing * n, y0 + back_y * spacing * n,
+             spawn_height(vehicle["robot"]) + z0, yaw),
             tag_id=vehicle["tag_id"], tag_family=tag_family, tag_size=tag_size,
             camera=vehicle["camera"], camera_mount=camera_mount,
             sensor_profile=sensor_profile, clock=False,
@@ -175,6 +180,9 @@ def generate_launch_description():
                               description="Where the leader stands. 0 is the world centre."),
         DeclareLaunchArgument("y", default_value="0.0",
                               description="Where the leader stands. 0 is the world centre."),
+        DeclareLaunchArgument("z", default_value="0.0",
+                              description=("Ground height under the line, metres; added to "
+                                           "each vehicle's own spawn height.")),
         DeclareLaunchArgument("yaw", default_value="0.0",
                               description=("Heading of the whole line, radians. 0 points "
                                            "along the carreador through the origin.")),
