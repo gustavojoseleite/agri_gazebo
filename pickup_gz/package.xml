@@ -29,6 +29,7 @@
   <test_depend>xacro</test_depend>
   <test_depend>python3-yaml</test_depend>
   <test_depend>python3-pytest</test_depend>
+  <test_depend>agri_gz_bringup</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

@@ -883,6 +883,61 @@ Entre as duas medidas mudaram três coisas: um só `/clock` para o comboio (em v
 relógio por veículo), a distorção da câmera em ponto fixo no `camera_distortion` e o corte das
 câmeras em 60 m (`camera_far`). O resto do comportamento ficou igual.
 
+## Validação a 40 km/h
+
+O `validate_physics` mede, sem tela, se o `autonomous_tractor` e a `pickup` andam, curvam e freiam
+a 40 km/h (11,1 m/s) como o modelo promete. Cada veículo sobe sozinho, num domínio ROS e numa
+partição do Gazebo próprios (a `Session` do módulo `agri_gz_bringup.maneuvers`), e a tabela sai em
+Markdown. A medida leva alguns minutos:
+
+```bash
+ros2 run agri_gz_bringup validate_physics
+```
+
+A matriz: reta e frenagem, curvas de 6, 12, 24 e 30 m no limite de aceleração lateral
+(a_lat = 1,0 m/s², isto é, v = √(a_lat · R)) e de 30 m a 11,1 m/s, nos dois veículos, mais o
+relevo do `citrus_farm` no trator. Os critérios:
+
+- reta: velocidade mantida entre 11,0 e 11,2 m/s;
+- frenagem: distância dentro de 10% de v²/2a, com a = 3,0 m/s² no trator e 6,0 m/s² na pickup
+  (o limitador de cada um); no relevo, 15%;
+- curva: raio dentro de 3% do comandado, desvio do círculo menor que 0,2 m e rolagem menor
+  que 5°;
+- relevo: desnível maior que 5 m, velocidade entre 10,8 e 11,4 m/s e rolagem e arfagem menores
+  que 20°.
+
+Medido em 2026-11-23, no `empty.sdf` e, no relevo, no `citrus_farm.sdf`, com a GPU NVIDIA
+GeForce RTX 3060 (`docker/run.sh --no-gui`):
+
+| Veículo | Manobra | Medido | Passou |
+|---|---|---|---|
+| autonomous_tractor | reta a 11,1 m/s | v de 11,10 a 11,10 m/s | sim |
+| autonomous_tractor | frenagem a 3,0 m/s² | 20,7 m em 3,7 s (ideal 20,4 m) | sim |
+| autonomous_tractor | curva de 6 m a 2,45 m/s | raio 5,94 m, desvio 0,04 m, rolagem 0,0° | sim |
+| autonomous_tractor | curva de 12 m a 3,46 m/s | raio 11,84 m, desvio 0,04 m, rolagem 0,0° | sim |
+| autonomous_tractor | curva de 24 m a 4,90 m/s | raio 23,65 m, desvio 0,05 m, rolagem 0,0° | sim |
+| autonomous_tractor | curva de 30 m a 5,48 m/s | raio 29,55 m, desvio 0,05 m, rolagem 0,0° | sim |
+| autonomous_tractor | curva de 30 m a 11,10 m/s | raio 29,55 m, desvio 0,05 m, rolagem 0,0° | sim |
+| pickup | reta a 11,1 m/s | v de 11,10 a 11,10 m/s | sim |
+| pickup | frenagem a 6,0 m/s² | 10,5 m em 1,8 s (ideal 10,2 m) | sim |
+| pickup | curva de 6 m a 2,45 m/s | raio 6,16 m, desvio 0,02 m, rolagem 0,0° | sim |
+| pickup | curva de 12 m a 3,46 m/s | raio 12,01 m, desvio 0,03 m, rolagem 0,0° | sim |
+| pickup | curva de 24 m a 4,90 m/s | raio 24,00 m, desvio 0,03 m, rolagem 0,0° | sim |
+| pickup | curva de 30 m a 5,48 m/s | raio 30,00 m, desvio 0,03 m, rolagem 0,0° | sim |
+| pickup | curva de 30 m a 11,10 m/s | raio 30,00 m, desvio 0,03 m, rolagem 0,0° | sim |
+| autonomous_tractor | relevo do citrus_farm, desnível | 16,3 m | sim |
+| autonomous_tractor | relevo do citrus_farm, velocidade | v de 11,00 a 11,17 m/s | sim |
+| autonomous_tractor | relevo do citrus_farm, inclinação | rolagem 0,5°, arfagem 8,8° | sim |
+| autonomous_tractor | relevo do citrus_farm, frenagem | 21,4 m (ideal 20,4 m) | sim |
+
+Limitações:
+
+- O modelo é rígido, sem rolagem: a suspensão não existe e a rolagem medida fica perto de zero.
+  Que o veículo "não tomba" é garantido pelo modelo, não demonstrado por esta medida.
+- Em malha aberta, o trator deriva cerca de 3 m lateralmente em 400 m de rampa.
+- O raio executado do trator fica cerca de 1,5% abaixo do comandado (a pickup, 0 a 3% acima);
+  o critério de 3% ainda passa.
+
 ## Adicionando um veículo
 
 Copie `autonomous_tractor_gz/` para `<veiculo>_gz/` e aponte-o para o `<veiculo>_description`
