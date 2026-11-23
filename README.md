@@ -938,6 +938,128 @@ Limitações:
 - O raio executado do trator fica cerca de 1,5% abaixo do comandado (a pickup, 0 a 3% acima);
   o critério de 3% ainda passa.
 
+## Referência do ambiente
+
+Esta seção reúne, num só lugar, os mundos, os veículos, os sensores e os perfis de degradação, com
+o valor, a unidade e a fonte de cada parâmetro. Os detalhes de como cada coisa funciona estão nas
+seções citadas em cada subseção; aqui ficam só os valores. Decimais usam vírgula e os pontos
+separam milhares. "Plano" é o `docs/plano_implementacao_pesquisa.md` da raiz do workspace, e D6,
+D13, D15, D16, D19 e D24 são as decisões dele.
+
+### Mundos
+
+| Mundo | Rede de estradas | Rota usada nos experimentos | Fonte |
+|-------|------------------|-----------------------------|-------|
+| `citrus_farm_30.sdf` | dois carreadores, 12 curvas de 30° no perímetro | perímetro de 1.315,9 m, raio de 30 m | Gerador `agri_gz_worlds/scripts/generate_agriculture_worlds.py`; D6 e D24 do plano |
+| `citrus_farm_60.sdf` | três carreadores, divisa em hexágono (6 curvas de 60°) | perímetro de 1.405,5 m, raio de 26 m | Gerador `agri_gz_worlds/scripts/generate_agriculture_worlds.py`; D6 e D24 do plano |
+| `citrus_farm_90.sdf` | quatro carreadores de borda a borda (4 curvas de 90° no perímetro) | perímetro de 1.600,8 m, raio de 24 m | Gerador `agri_gz_worlds/scripts/generate_agriculture_worlds.py`; D6 e D24 do plano |
+| `citrus_farm.sdf` | quadrado de 560 m, um cruzamento e quatro estradas oblíquas (60° e 30°) | volta `lap` de 1.102,8 m | Gerador `agri_gz_worlds/scripts/generate_agriculture_worlds.py`; D6 e D24 do plano |
+| `empty.sdf` | nenhuma: chão, sol e os sistemas | nenhuma (teste de fumaça) | Gerador `agri_gz_worlds/scripts/generate_agriculture_worlds.py`; D24 do plano |
+
+Nos quatro mundos `citrus_farm*`, o relevo é um perfil ao longo de X, plano em Y. O perímetro
+começa em x = −205 m, onde o chão está 8,08 m acima do nível da origem. O `citrus_farm.sdf` estende
+o terreno até 460 m; os outros, até 260 m. A seção "Chão que não é plano" explica o relevo. O
+`empty.sdf` é plano.
+
+### Veículos
+
+| Parâmetro | Trator | Pickup | Unidade | Fonte |
+|-----------|--------|--------|---------|-------|
+| Entre-eixos (`wheel_base`) | 2,15 | 3,09 | m | `params.xacro` do `robot_description` (`autonomous_tractor_description`, `pickup_description`) |
+| Batente da direção (`steering_limit`) | 0,60 | 0,52 | rad | `params.xacro` do `robot_description` |
+| Raio mínimo de curva | 3,14 | 5,40 | m | `wheel_base` / tan(`steering_limit`), dos mesmos `params.xacro` |
+| Velocidade máxima (`max_velocity`) | 11,1 | 22,0 | m/s | `cmd_vel_limiter` em `vehicle_control/vehicle_control/config`; D19 do plano para os 11,1 m/s do trator |
+| Velocidade de ré (`min_velocity`) | −1,7 | −6,0 | m/s | `cmd_vel_limiter` em `vehicle_control/vehicle_control/config` |
+| Aceleração (`max_acceleration`) | 1,5 | 3,0 | m/s² | `cmd_vel_limiter` em `vehicle_control/vehicle_control/config` |
+| Desaceleração (`min_acceleration`) | −3,0 | −6,0 | m/s² | `cmd_vel_limiter` em `vehicle_control/vehicle_control/config` |
+| Balanço traseiro e dianteiro | −1,15 e +2,81 | −1,12 e +4,10 | m, a partir do eixo traseiro | Medidos pelas colisões do URDF |
+| Altura de criação (`z`) | 0,4 | 0,3 | m | `config/spawn.yaml` de cada pacote `_gz` |
+
+Os valores de velocidade e de aceleração são os do `cmd_vel_limiter` de cada veículo, um por
+arquivo (`autonomous_tractor.yaml` e `pickup.yaml`).
+
+### Sensores
+
+O argumento `sensor_profile` escolhe um dos três perfis de navegação. As propriedades vêm do
+`agri_gz_bringup/urdf/sensors.gz.xacro`; `imu_noise` multiplica os desvios e as polarizações da IMU.
+
+| Propriedade | `default` | `nominal` | `ideal` | Unidade | Fonte |
+|-------------|-----------|-----------|---------|---------|-------|
+| `gnss_rate` | 5 | 1 | 1 | Hz | `sensors.gz.xacro`; D13 do plano para o `nominal` |
+| `gnss_horizontal` | 1,0 | 0,02 | 0,0 | m | `sensors.gz.xacro`; D13 do plano para o `nominal` |
+| `gnss_vertical` | 2,0 | 0,04 | 0,0 | m | `sensors.gz.xacro`; D13 do plano para o `nominal` |
+| `imu_rate` | 100 | 20 | 20 | Hz | `sensors.gz.xacro`; D13 do plano para o `nominal` |
+| `imu_noise` | 1,0 | 0,0 | 0,0 | multiplicador | `sensors.gz.xacro`; no `default`, a unidade MEMS industrial do xacro |
+
+Com `imu_noise` igual a 1, o desvio é de 0,0003 rad/s no giroscópio e de 0,017 m/s² no
+acelerômetro, com polarização de 0,0000075 rad/s e de 0,1 m/s², e variação da polarização de
+0,0000008 rad/s e de 0,001 m/s² (fonte: `sensors.gz.xacro`).
+
+| Sensor | Parâmetro | Valor | Unidade | Fonte |
+|--------|-----------|-------|---------|-------|
+| Câmera | Resolução | 1280 x 720 | pixels | `sensors.gz.xacro` (`gz_camera`); D15 do plano |
+| Câmera | Campo de visão horizontal | 120 (2,0944) | graus (rad) | `sensors.gz.xacro` (`gz_camera`); D15 do plano |
+| Câmera | Taxa | 10 | Hz | `sensors.gz.xacro` (`gz_camera`); D15 do plano |
+| Câmera | Coeficientes de Brown padrão (`k1`, `k2`, `k3`, `p1`, `p2`) | −0,10; 0,01; 0; 0; 0 | adimensional | `sensors.gz.xacro` (`gz_camera`); D15 do plano |
+| Tag | Família | 36h11 | - | D16 do plano |
+| Tag | Tamanho do quadrado preto | 0,5 | m | D16 do plano |
+| Tag do trator | Posição: x em relação ao `base_link`, e altura do centro | −0,38 e 1,90 | m | `params.xacro` do `autonomous_tractor_description` (`tag_x`, `tag_z`); D16 do plano |
+| Tag da pickup | Posição: x em relação ao `base_link`, e altura do centro | −1,13 e 1,05 | m | `params.xacro` do `pickup_description` (`tag_x`, `tag_z`); D16 do plano |
+
+A seção "A distorção da câmera" explica os coeficientes de Brown e o nó que os aplica, e a seção
+"Perfis de sensor, câmera, textura e pose real" descreve o uso dos perfis.
+
+### Perfis de degradação
+
+Cada perfil é do `agri_sensor_degradation/config/profiles.yaml`. Os valores abaixo são os do
+arquivo; as zonas de perda ficam fora, porque dependem do mapa. A seção "Os efeitos nos nós" e a
+seção "Markov, saltos com faixa e patinagem" explicam o que cada efeito faz, e a seção "Os efeitos
+da câmera" trata dos da câmera.
+
+| Sensor | Perfil | Chave | Valor | Unidade | Fonte |
+|--------|--------|-------|-------|---------|-------|
+| `gnss` | `rtk_float` | `markov.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `gnss` | `rtk_float` | `markov.position` | 0,212132 | m, por eixo horizontal | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): σh dividido por √2 |
+| `gnss` | `rtk_float` | `markov.tau` | 60,0 | s | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet) |
+| `gnss` | `rtk_float` | `jumps.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `gnss` | `rtk_float` | `jumps.rate` | 0,008333 | 1/s | Escolhido na F1.4b/F1.4c |
+| `gnss` | `rtk_float` | `jumps.position` | 2,0 | m | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): saltos de até 2 m |
+| `gnss` | `rtk_float` | `jumps.min_fraction` | 0,25 | fração da amplitude | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): saltos a partir de 0,5 m |
+| `gnss` | `rtk_float` | `jumps.duration_min` | 1,0 | s | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): de 1 a 3 s |
+| `gnss` | `rtk_float` | `jumps.duration` | 3,0 | s | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): de 1 a 3 s |
+| `gnss` | `dgnss` | `markov.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `gnss` | `dgnss` | `markov.position` | 0,494975 | m, por eixo horizontal | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): σh dividido por √2 |
+| `gnss` | `dgnss` | `markov.tau` | 60,0 | s | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet) |
+| `gnss` | `dgnss` | `jumps.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `gnss` | `dgnss` | `jumps.rate` | 0,008333 | 1/s | Escolhido na F1.4b/F1.4c |
+| `gnss` | `dgnss` | `jumps.position` | 2,0 | m | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): saltos de até 2 m |
+| `gnss` | `dgnss` | `jumps.min_fraction` | 0,25 | fração da amplitude | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): saltos a partir de 0,5 m |
+| `gnss` | `dgnss` | `jumps.duration_min` | 1,0 | s | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): de 1 a 3 s |
+| `gnss` | `dgnss` | `jumps.duration` | 3,0 | s | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): de 1 a 3 s |
+| `imu` | `mems` | `noise.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `imu` | `mems` | `noise.gyro` | 0,005 | rad/s | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet) |
+| `imu` | `mems` | `noise.accel` | 0,02 | m/s² | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet) |
+| `imu` | `mems` | `markov.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `imu` | `mems` | `markov.gyro` | 4,8481e-05 | rad/s | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): deriva do viés de ~10°/h |
+| `imu` | `mems` | `markov.tau` | 300,0 | s | Escolhido na F1.4b/F1.4c |
+| `odometry` | `field` | `scale.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `odometry` | `field` | `scale.linear` | 1,02 | fator | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): erro de escala de 2 % |
+| `odometry` | `field` | `slip.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `odometry` | `field` | `slip.rate` | 0,016667 | 1/s | Escolhido na F1.4b/F1.4c |
+| `odometry` | `field` | `slip.duration` | 2,0 | s | Escolhido na F1.4b/F1.4c |
+| `odometry` | `field` | `slip.fraction` | 0,1 | fração | Escolhido na F1.4b/F1.4c |
+| `camera` | `occlusion_25` | `occlusion.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `camera` | `occlusion_25` | `occlusion.fraction` | 0,25 | fração da área da tag | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): oclusão de 25, 50 e 75 % |
+| `camera` | `occlusion_50` | `occlusion.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `camera` | `occlusion_50` | `occlusion.fraction` | 0,5 | fração da área da tag | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): oclusão de 25, 50 e 75 % |
+| `camera` | `occlusion_75` | `occlusion.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `camera` | `occlusion_75` | `occlusion.fraction` | 0,75 | fração da área da tag | Plano, seção 5.5 (valor inicial do plano, a conferir com datasheet): oclusão de 25, 50 e 75 % |
+| `camera` | `dust` | `dust.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `camera` | `dust` | `dust.contrast` | 0,5 | fator de contraste | Escolhido na F1.4b/F1.4c |
+| `camera` | `dust` | `dust.blur` | 2,0 | σ, em pixels | Escolhido na F1.4b/F1.4c |
+| `camera` | `glare` | `brightness.enabled` | sim | - | `profiles.yaml`: liga o efeito |
+| `camera` | `glare` | `brightness.gain` | 1,6 | fator | Escolhido na F1.4b/F1.4c |
+
 ## Adicionando um veículo
 
 Copie `autonomous_tractor_gz/` para `<veiculo>_gz/` e aponte-o para o `<veiculo>_description`

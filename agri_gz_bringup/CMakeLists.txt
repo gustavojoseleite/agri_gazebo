@@ -31,6 +31,7 @@ if(BUILD_TESTING)
   ament_add_pytest_test(test_camera_loss test/test_camera_loss.py)
   ament_add_pytest_test(test_camera_effects_node test/test_camera_effects_node.py)
   ament_add_pytest_test(test_maneuvers test/test_maneuvers.py)
+  ament_add_pytest_test(test_docs_environment test/test_docs_environment.py)
 endif()
 
 ament_package()
