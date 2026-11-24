@@ -12,7 +12,7 @@ from pathlib import Path
 import yaml
 from ament_index_python.packages import get_package_share_directory
 
-from agri_gz_bringup.vehicles import bridge_config, convoy_line
+from agri_gz_bringup.vehicles import bridge_config, convoy_line, gz_args
 
 BRIDGE = """
 - ros_topic_name: "imu/data"
@@ -87,7 +87,7 @@ def _convoy_arguments():
 
 def test_convoy_arguments():
     names = set(_convoy_arguments())
-    assert {'tag_family', 'tag_size', 'camera_mount', 'sensor_profile'} <= names
+    assert {'tag_family', 'tag_size', 'camera_mount', 'sensor_profile', 'seed'} <= names
     assert 'followers_sensors' not in names
     assert 'followers_camera' not in names
 
@@ -95,3 +95,31 @@ def test_convoy_arguments():
 def test_convoy_has_the_ground_height():
     # O relevo varia ao longo de X: a fila nasce sobre o chão do ponto de partida.
     assert _convoy_arguments()['z'] is not None
+
+
+def test_gz_args_seed():
+    # Semente maior que zero vai para o --seed do gz sim; zero deixa o Gazebo sortear.
+    assert gz_args("w.sdf", True, 7).endswith(" --seed 7")
+    assert "--seed" not in gz_args("w.sdf", True, 0)
+    assert "--seed" not in gz_args("w.sdf", True)
+
+
+def test_sequential_spawn():
+    # Cada veículo nasce depois do anterior, para a semente do Gazebo dar o mesmo ruído ao
+    # mesmo veículo em toda execução.
+    from launch.actions import RegisterEventHandler
+    from launch_ros.actions import Node
+    path = (Path(get_package_share_directory('agri_gz_bringup')) / 'launch'
+            / 'convoy.launch.py')
+    spec = importlib.util.spec_from_file_location('convoy_launch', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    first = [Node(package='p', executable='x'), Node(package='ros_gz_sim', executable='create')]
+    second = [Node(package='p', executable='y'), Node(package='ros_gz_sim', executable='create')]
+    assert module.sequential_spawn(first, None) == first
+    previous = module.spawn_node(first)
+    assert previous is first[1]
+    chained = module.sequential_spawn(second, previous)
+    assert second[1] not in chained
+    assert second[0] in chained
+    assert isinstance(chained[-1], RegisterEventHandler)

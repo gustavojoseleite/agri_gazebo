@@ -91,9 +91,17 @@ def has_camera(robot):
     return f'"{CAMERA}/' in bridge.read_text()
 
 
-def gz_args(world_path, gui):
-    """Argumentos do `gz sim`: `-s` sem janela e, sem tela, render por EGL."""
+def gz_args(world_path, gui, seed=0):
+    """
+    Argumentos do `gz sim`: `-s` sem janela e, sem tela, render por EGL.
+
+    Uma semente maior que zero vai para o `--seed` do `gz sim` e fixa o ruído dos sensores do
+    Gazebo (o GNSS, por exemplo): a mesma semente dá a mesma sequência de erros. Com zero, o
+    Gazebo sorteia uma semente nova a cada execução.
+    """
     args = f"{world_path} -r -v 3"
+    if int(seed) > 0:
+        args += f" --seed {int(seed)}"
     if not gui:
         args += " -s"
         if not os.environ.get("DISPLAY"):

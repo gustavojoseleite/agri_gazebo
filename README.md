@@ -139,6 +139,7 @@ Argumentos do comboio além dos de posição:
 | `tag_size`       | `0.5`     | lado do quadrado preto da tag, em metros                        |
 | `camera_mount`   | `single`  | `single` (uma câmera) ou `dual` (duas câmeras de 90 graus)      |
 | `sensor_profile` | `default` | perfil de GNSS e IMU: `default`, `nominal` ou `ideal`           |
+| `seed`           | `0`       | semente do ruído dos sensores do Gazebo; `0` sorteia uma nova   |
 
 Cada câmera sobe com um nó `camera_distortion` no namespace do veículo, que publica
 `<veiculo>/camera_front/image_raw` (ou as das duas câmeras na montagem `dual`).

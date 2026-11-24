@@ -46,7 +46,8 @@ from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction,
-                            SetEnvironmentVariable)
+                            RegisterEventHandler, SetEnvironmentVariable)
+from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -89,7 +90,7 @@ def launch_setup(context, *args, **kwargs):
             Path(get_package_share_directory("ros_gz_sim")) / "launch" / "gz_sim.launch.py"
         )),
         launch_arguments={
-            "gz_args": gz_args(world_path, gui),
+            "gz_args": gz_args(world_path, gui, int(arg("seed"))),
         }.items(),
     )
 
@@ -114,8 +115,9 @@ def launch_setup(context, *args, **kwargs):
     )
 
     nodes = [*egl_actions(gui), *shared_memory_actions(), gz_sim, clock_bridge]
+    previous = None
     for n, vehicle in enumerate(line):
-        nodes += vehicle_nodes(
+        actions = vehicle_nodes(
             vehicle["robot"], vehicle["name"], f"/{vehicle['name']}",
             (x0 + back_x * spacing * n, y0 + back_y * spacing * n,
              spawn_height(vehicle["robot"]) + z0, yaw),
@@ -123,7 +125,29 @@ def launch_setup(context, *args, **kwargs):
             camera=vehicle["camera"], camera_mount=camera_mount,
             sensor_profile=sensor_profile, clock=False,
         )
+        nodes += sequential_spawn(actions, previous)
+        previous = spawn_node(actions)
     return nodes
+
+
+def spawn_node(actions):
+    """O nó `create` que põe o veículo no Gazebo, entre as ações dele."""
+    return next(a for a in actions if isinstance(a, Node) and a.node_executable == "create")
+
+
+def sequential_spawn(actions, previous):
+    """Faz o veículo nascer só depois que o anterior nasceu.
+
+    O Gazebo sorteia o ruído dos sensores de um gerador só, na ordem em que os sensores foram
+    criados. Com todos nascendo juntos, essa ordem muda de uma execução para outra, e a mesma
+    semente (`seed`) entrega a mesma sequência de erros a veículos diferentes. Em fila, a ordem
+    é a do comboio, e a semente fixa o ruído de cada veículo.
+    """
+    if previous is None:
+        return actions
+    spawn = spawn_node(actions)
+    rest = [a for a in actions if a is not spawn]
+    return rest + [RegisterEventHandler(OnProcessExit(target_action=previous, on_exit=[spawn]))]
 
 
 def generate_launch_description():
@@ -167,6 +191,10 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "tag_size", default_value="0.5",
             description="Side of the tag's black square, metres.",
+        ),
+        DeclareLaunchArgument(
+            "seed", default_value="0",
+            description="Seed of the Gazebo sensor noise; 0 draws a new one each run.",
         ),
         DeclareLaunchArgument(
             "camera_mount", default_value="single",
